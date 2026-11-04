@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+backend/.env
+backend/.seltzer-files/
+
+# Frontend
+node_modules/
+frontend/dist/
+backend/seltzer/static/
+
+# Databricks
+.databricks/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
