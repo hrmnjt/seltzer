@@ -34,12 +34,16 @@ class Settings(BaseSettings):
     seltzer_dev_user_email: str | None = None
     seltzer_dev_owner_emails: str = ""
 
-    # Attachments. In Databricks this is a UC volume path, /Volumes/<cat>/<schema>/<vol>.
-    seltzer_volume_path: str | None = None
+    # Attachments. In Databricks this is the UC volume, as "catalog.schema.volume" (what an
+    # app resource's value_from gives) or as a /Volumes/<catalog>/<schema>/<volume> path.
+    seltzer_volume: str | None = None
     seltzer_local_files_dir: str = ".seltzer-files"
     seltzer_max_upload_mb: int = 25
 
     seltzer_run_migrations: bool = True
+    # Postgres roles (comma-separated) granted read/write on Seltzer's tables after each
+    # migration, e.g. the role the sweep job connects as when it isn't the app's own.
+    seltzer_db_grant_roles: str = ""
     seltzer_static_dir: str | None = None
 
     # Lists and pages
@@ -52,6 +56,22 @@ class Settings(BaseSettings):
     @property
     def uses_lakebase_tokens(self) -> bool:
         return self.endpoint_name is not None and self.pgpassword is None
+
+    @property
+    def volume_root(self) -> str | None:
+        v = (self.seltzer_volume or "").strip().rstrip("/")
+        if not v:
+            return None
+        if v.startswith("/"):
+            return v
+        parts = v.split(".")
+        if len(parts) != 3 or not all(parts):
+            raise ValueError("SELTZER_VOLUME must be catalog.schema.volume or a /Volumes path")
+        return "/Volumes/" + "/".join(parts)
+
+    @property
+    def grant_roles(self) -> list[str]:
+        return [r.strip() for r in self.seltzer_db_grant_roles.split(",") if r.strip()]
 
     @property
     def dev_owner_emails(self) -> set[str]:

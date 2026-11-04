@@ -99,7 +99,9 @@ async def test_notifications_stack_per_card(ada: Api, bob: Api, cy: Api) -> None
     assert (await ada.get("/me"))["unread_notifications"] == 0
 
 
-async def test_assignment_notifies_and_board_watchers_hear_everything(ada: Api, bob: Api, cy: Api) -> None:
+async def test_assignment_notifies_and_board_watchers_hear_everything(
+    ada: Api, bob: Api, cy: Api
+) -> None:
     board = await make_board(ada)
     await cy.put(f"/boards/{board['id']}/watch")
     card = await make_card(ada, board["id"])
@@ -123,9 +125,18 @@ async def test_comments_reactions_and_edits(ada: Api, bob: Api) -> None:
     assert c["edited_at"] and c["reactions"][0]["count"] == 2 and c["reactions"][0]["mine"]
     bad_link = {
         "type": "doc",
-        "content": [{"type": "paragraph", "content": [
-            {"type": "text", "text": "x", "marks": [{"type": "link", "attrs": {"href": "javascript:alert(1)"}}]}
-        ]}],
+        "content": [
+            {
+                "type": "paragraph",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "x",
+                        "marks": [{"type": "link", "attrs": {"href": "javascript:alert(1)"}}],
+                    }
+                ],
+            }
+        ],
     }
     await bob.post(f"/cards/{card['number']}/comments", {"body": bad_link}, expect=422)
     await ada.delete(f"/comments/{comment['id']}")  # board admin may delete
@@ -133,10 +144,16 @@ async def test_comments_reactions_and_edits(ada: Api, bob: Api) -> None:
 
 async def test_search(ada: Api, bob: Api) -> None:
     board = await make_board(ada)
-    a = await make_card(ada, board["id"], "Login loop on Safari",
-                        description=doc("Users bounce between the IdP and the app"))
+    a = await make_card(
+        ada,
+        board["id"],
+        "Login loop on Safari",
+        description=doc("Users bounce between the IdP and the app"),
+    )
     b = await make_card(ada, board["id"], "Dark mode for the board")
-    await bob.post(f"/cards/{b['number']}/comments", {"body": doc("The contrast of tiles is too low")})
+    await bob.post(
+        f"/cards/{b['number']}/comments", {"body": doc("The contrast of tiles is too low")}
+    )
 
     async def found(q: str) -> list[int]:
         return [h["card"]["number"] for h in (await bob.get(f"/search?q={q}"))["hits"]]
@@ -186,5 +203,9 @@ async def test_problem_json_shape(ada: Api) -> None:
     response = await ada.http.get("/cards/999")
     assert response.status_code == 404
     assert response.headers["content-type"] == "application/problem+json"
-    assert response.json() == {"type": "about:blank", "title": "Not found", "status": 404,
-                               "detail": "No card #999"}
+    assert response.json() == {
+        "type": "about:blank",
+        "title": "Not found",
+        "status": 404,
+        "detail": "No card #999",
+    }

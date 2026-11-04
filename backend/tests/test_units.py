@@ -45,12 +45,23 @@ def test_rich_text_plain_text_and_mentions() -> None:
     doc = {
         "type": "doc",
         "content": [
-            {"type": "heading", "attrs": {"level": 2}, "content": [{"type": "text", "text": "Steps"}]},
-            {"type": "paragraph", "content": [
-                {"type": "text", "text": "Ask "},
-                {"type": "mention", "attrs": {"id": str(uid), "label": "Ada"}},
-                {"type": "text", "text": " about it", "marks": [{"type": "link", "attrs": {"href": "https://x.test"}}]},
-            ]},
+            {
+                "type": "heading",
+                "attrs": {"level": 2},
+                "content": [{"type": "text", "text": "Steps"}],
+            },
+            {
+                "type": "paragraph",
+                "content": [
+                    {"type": "text", "text": "Ask "},
+                    {"type": "mention", "attrs": {"id": str(uid), "label": "Ada"}},
+                    {
+                        "type": "text",
+                        "text": " about it",
+                        "marks": [{"type": "link", "attrs": {"href": "https://x.test"}}],
+                    },
+                ],
+            },
         ],
     }
     richtext.validate(doc)
@@ -70,3 +81,16 @@ def test_rich_text_plain_text_and_mentions() -> None:
 def test_rich_text_rejects_unsafe_documents(bad: dict) -> None:
     with pytest.raises(richtext.RichTextError):
         richtext.validate(bad)
+
+
+def test_volume_setting_accepts_full_names_and_paths() -> None:
+    from seltzer.config import Settings
+
+    assert (
+        Settings(seltzer_volume="main.seltzer.attachments").volume_root
+        == "/Volumes/main/seltzer/attachments"
+    )
+    assert Settings(seltzer_volume="/Volumes/a/b/c/").volume_root == "/Volumes/a/b/c"
+    assert Settings(seltzer_volume=None).volume_root is None
+    with pytest.raises(ValueError):
+        _ = Settings(seltzer_volume="just-a-name").volume_root

@@ -151,8 +151,7 @@ async def tiles(ctx: Ctx, cards: Sequence[Card]) -> list[CardTile]:
                 .where(Comment.card_id.in_(ids))
                 .group_by(Comment.card_id)
             )
-        )
-        .all()
+        ).all()
     )
     attachments = dict(
         (
@@ -161,8 +160,7 @@ async def tiles(ctx: Ctx, cards: Sequence[Card]) -> list[CardTile]:
                 .where(Attachment.card_id.in_(ids))
                 .group_by(Attachment.card_id)
             )
-        )
-        .all()
+        ).all()
     )
     stamps = {
         row.card_id: Stamp(action=row.action, actor_id=row.actor_id, at=row.created_at)

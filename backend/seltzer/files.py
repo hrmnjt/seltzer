@@ -75,8 +75,8 @@ class LocalFileStore:
 
 
 def make_store(settings: Settings) -> FileStore:
-    if settings.seltzer_volume_path:
-        return VolumeFileStore(settings.seltzer_volume_path)
+    if settings.volume_root:
+        return VolumeFileStore(settings.volume_root)
     if not settings.is_local:
-        raise RuntimeError("SELTZER_VOLUME_PATH must be set outside local development")
+        raise RuntimeError("SELTZER_VOLUME must be set outside local development")
     return LocalFileStore(settings.seltzer_local_files_dir)

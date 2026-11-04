@@ -15,6 +15,9 @@ dependencies = [
     "databricks-sdk>=0.60",
 ]
 
+[project.scripts]
+seltzer-sweep = "seltzer.jobs.sweep:main"
+
 [dependency-groups]
 dev = [
     "pytest>=8",
@@ -30,6 +33,8 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["seltzer"]
+# The job wheel needs only the Python package; the app ships the built UI separately.
+exclude = ["seltzer/static"]
 
 [tool.ruff]
 target-version = "py311"
@@ -53,3 +58,4 @@ check_untyped_defs = true
 
 [tool.ruff.lint.per-file-ignores]
 "migrations/versions/*" = ["E501"]
+"tests/*" = ["E501"]

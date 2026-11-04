@@ -8,7 +8,7 @@ from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import text
+from sqlalchemy import Connection, text
 
 from seltzer.config import Settings
 from seltzer.db.engine import make_sync_engine
@@ -25,6 +25,18 @@ def alembic_config() -> Config:
     return cfg
 
 
+def grant(conn: Connection, role: str) -> None:
+    """Let another Postgres role (such as the sweep job's) read and write Seltzer's tables."""
+    quoted = conn.dialect.identifier_preparer.quote(role)
+    for stmt in (
+        f"GRANT USAGE ON SCHEMA public TO {quoted}",
+        f"GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO {quoted}",
+        f"GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO {quoted}",
+    ):
+        conn.execute(text(stmt))
+    log.info("granted table access to %s", role)
+
+
 def upgrade(settings: Settings, revision: str = "head") -> None:
     engine = make_sync_engine(settings)
     try:
@@ -35,6 +47,8 @@ def upgrade(settings: Settings, revision: str = "head") -> None:
                 cfg = alembic_config()
                 cfg.attributes["connection"] = conn
                 command.upgrade(cfg, revision)
+                for role in settings.grant_roles:
+                    grant(conn, role)
                 conn.commit()
             finally:
                 conn.execute(text("select pg_advisory_unlock(:k)"), {"k": MIGRATION_LOCK})

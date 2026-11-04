@@ -14,7 +14,9 @@ from tests.conftest import Api, make_board, make_card
 async def age(app: Any, number: int, days: float) -> None:
     async with app.state.db.engine.begin() as conn:
         await conn.execute(
-            text("update cards set last_active_at = now() - make_interval(secs => :s) where number = :n"),
+            text(
+                "update cards set last_active_at = now() - make_interval(secs => :s) where number = :n"
+            ),
             {"s": days * 86400, "n": number},
         )
 
@@ -25,8 +27,15 @@ async def test_sweep_postpones_idle_cards(app: Any, ada: Api, bob: Api) -> None:
     idle = await make_card(ada, board["id"], "Idle")
     busy = await make_card(ada, board["id"], "Busy")
     await ada.post(f"/cards/{idle['number']}/triage", {"column_id": doing})
-    await bob.post(f"/cards/{idle['number']}/comments", {"body": {"type": "doc", "content": [
-        {"type": "paragraph", "content": [{"type": "text", "text": "ping"}]}]}})
+    await bob.post(
+        f"/cards/{idle['number']}/comments",
+        {
+            "body": {
+                "type": "doc",
+                "content": [{"type": "paragraph", "content": [{"type": "text", "text": "ping"}]}],
+            }
+        },
+    )
     await age(app, idle["number"], 31)
     await age(app, busy["number"], 10)
 
@@ -82,3 +91,17 @@ async def test_overlapping_sweeps_skip(app: Any, ada: Api) -> None:
             assert result.skipped_locked
         finally:
             await other.scalar(select(func.pg_advisory_unlock(SWEEP_LOCK)))
+
+
+def test_migration_grants_roles(settings: Any) -> None:
+    """Granting is idempotent and quotes the role; here the test role grants to itself."""
+    from seltzer.db.engine import make_sync_engine
+    from seltzer.migrate import grant
+
+    engine = make_sync_engine(settings)
+    with engine.begin() as conn:
+        grant(conn, settings.pguser)
+        assert conn.execute(
+            text("select has_table_privilege(current_user, 'cards', 'UPDATE')")
+        ).scalar()
+    engine.dispose()

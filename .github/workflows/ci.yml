@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: seltzer
+          POSTGRES_PASSWORD: seltzer
+          POSTGRES_DB: seltzer_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U seltzer" --health-interval 5s --health-timeout 5s --health-retries 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked
+      - name: Lint
+        run: uv run ruff check . && uv run ruff format --check .
+      - name: Type-check
+        run: uv run mypy seltzer
+      - name: Test against Postgres
+        run: uv run pytest
+      - name: Migrations match the models
+        env:
+          PGUSER: seltzer
+          PGPASSWORD: seltzer
+          PGDATABASE: seltzer_test
+          SELTZER_ENV: test
+        run: uv run alembic upgrade head && uv run alembic check
+      - name: requirements.txt is current
+        run: |
+          uv export --no-dev --no-hashes --no-emit-project --no-header -q -o /tmp/requirements.txt
+          diff <(tail -n +2 requirements.txt) /tmp/requirements.txt
+      - name: Frontend's OpenAPI copy is current
+        run: uv run python -m seltzer.openapi | diff ../frontend/openapi.json -
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Generated API types are current
+        run: npm run api:types && git diff --exit-code src/api/schema.d.ts
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  deploy-dev:
+    needs: [backend, frontend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: dev
+    env:
+      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+      DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+      DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Build the UI into backend/seltzer/static
+        run: npm --prefix frontend ci && npm --prefix frontend run build
+      - uses: databricks/setup-cli@main
+      - run: databricks bundle validate -t dev
+      - run: databricks bundle deploy -t dev
+      - name: Restart the app on the new code
+        run: databricks bundle run seltzer -t dev

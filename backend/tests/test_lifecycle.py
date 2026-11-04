@@ -49,8 +49,15 @@ async def test_full_lifecycle(ada: Api) -> None:
     detail = await ada.get(f"/cards/{n}")
     actions = [e["action"] for e in reversed(detail["events"])]
     assert actions == [
-        "published", "triaged", "moved", "closed", "reopened", "postponed", "resumed",
-        "triaged", "sent_back_to_triage",
+        "published",
+        "triaged",
+        "moved",
+        "closed",
+        "reopened",
+        "postponed",
+        "resumed",
+        "triaged",
+        "sent_back_to_triage",
     ]
 
 
@@ -108,7 +115,12 @@ async def test_ordering_and_golden(ada: Api) -> None:
         f"/cards/{numbers[3]}/triage",
         {"column_id": doing, "above": cards[numbers[0]]["id"], "below": cards[numbers[1]]["id"]},
     )
-    assert lane(await snapshot(ada, board["id"]), doing) == [numbers[0], numbers[3], numbers[1], numbers[2]]
+    assert lane(await snapshot(ada, board["id"]), doing) == [
+        numbers[0],
+        numbers[3],
+        numbers[1],
+        numbers[2],
+    ]
 
     # Golden sorts to the top and survives moves and state changes.
     await ada.put(f"/cards/{numbers[2]}/golden")
@@ -150,14 +162,19 @@ async def test_edit_conflict_and_title_events(ada: Api) -> None:
     board = await make_board(ada)
     card = await make_card(ada, board["id"])
     n, v = card["number"], card["version"]
-    edited = (await ada.patch(f"/cards/{n}", {"title": "Fix the login loop for SSO", "version": v}))["card"]
+    edited = (
+        await ada.patch(f"/cards/{n}", {"title": "Fix the login loop for SSO", "version": v})
+    )["card"]
     assert edited["version"] == v + 1
     problem = await ada.patch(f"/cards/{n}", {"title": "Stale", "version": v}, expect=409)
     assert problem["current_version"] == v + 1
     await ada.patch(f"/cards/{n}", {"title": "  "}, expect=422)
     detail = await ada.get(f"/cards/{n}")
     assert detail["events"][0]["action"] == "title_changed"
-    assert detail["events"][0]["details"] == {"from": "Fix the login loop", "to": "Fix the login loop for SSO"}
+    assert detail["events"][0]["details"] == {
+        "from": "Fix the login loop",
+        "to": "Fix the login loop for SSO",
+    }
 
 
 async def test_move_card_between_boards(ada: Api) -> None:
@@ -220,7 +237,9 @@ async def test_lists_and_filters(ada: Api, bob: Api) -> None:
 
     first = await ada.get(f"/boards/{board['id']}/cards?view=open&limit=2")
     assert len(first["cards"]) == 2 and first["next_cursor"]
-    second = await ada.get(f"/boards/{board['id']}/cards?view=open&limit=2&cursor={first['next_cursor']}")
+    second = await ada.get(
+        f"/boards/{board['id']}/cards?view=open&limit=2&cursor={first['next_cursor']}"
+    )
     assert len(second["cards"]) == 1 and second["next_cursor"] is None
     summary = (await ada.get("/boards"))[0]["counts"]
     assert summary == {"maybe": 3, "open": 3, "not_now": 1, "done": 1}

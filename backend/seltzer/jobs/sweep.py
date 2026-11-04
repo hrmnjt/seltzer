@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+import os
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -107,11 +108,50 @@ async def _main(dry_run: bool) -> int:
 
 
 def main() -> None:
+    """Entry point for the Lakeflow Job (`seltzer-sweep` in the wheel).
+
+    Connection settings come from the environment, or from flags the job passes.
+    """
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--dry-run", action="store_true")
+    for flag, env in FLAGS.items():
+        parser.add_argument(f"--{flag}", dest=env)
     args = parser.parse_args()
+    for env in FLAGS.values():
+        value = getattr(args, env)
+        if value:
+            os.environ[env.upper()] = value
+    if os.environ.get("ENDPOINT_NAME") and not os.environ.get("PGHOST"):
+        _resolve_from_endpoint(os.environ["ENDPOINT_NAME"])
+    get_settings.cache_clear()
     raise SystemExit(asyncio.run(_main(args.dry_run)))
+
+
+def _resolve_from_endpoint(endpoint: str) -> None:
+    """In a job, look up the endpoint's host and connect as the job's own identity."""
+    from databricks.sdk import WorkspaceClient
+
+    w = WorkspaceClient()
+    hosts = w.postgres.get_endpoint(endpoint).status
+    host = hosts.hosts.host if hosts and hosts.hosts else None
+    if not host:
+        raise SystemExit(f"endpoint {endpoint} has no host yet; is it running?")
+    os.environ["PGHOST"] = host
+    os.environ.setdefault("PGUSER", w.current_user.me().user_name or "")
+    os.environ.setdefault("PGSSLMODE", "require")
+    os.environ.setdefault("PGDATABASE", "databricks_postgres")
+    log.info("connecting to %s as %s", host, os.environ["PGUSER"])
+
+
+FLAGS = {
+    "host": "pghost",
+    "port": "pgport",
+    "database": "pgdatabase",
+    "user": "pguser",
+    "sslmode": "pgsslmode",
+    "endpoint": "endpoint_name",
+}
 
 
 if __name__ == "__main__":

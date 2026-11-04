@@ -83,8 +83,9 @@ class Api:
             headers={"X-Forwarded-Email": email, "X-Forwarded-User": f"id-{email}"},
         )
 
-    async def call(self, method: str, url: str, expect: int | tuple[int, ...] = (200, 201, 204),
-                   **kwargs: Any) -> Any:
+    async def call(
+        self, method: str, url: str, expect: int | tuple[int, ...] = (200, 201, 204), **kwargs: Any
+    ) -> Any:
         response = await self.http.request(method, url, **kwargs)
         codes = (expect,) if isinstance(expect, int) else expect
         assert response.status_code in codes, (
@@ -92,8 +93,9 @@ class Api:
         )
         if response.status_code == 204 or not response.content:
             return None
-        if response.headers.get("content-type", "").startswith(("application/json",
-                                                                 "application/problem+json")):
+        if response.headers.get("content-type", "").startswith(
+            ("application/json", "application/problem+json")
+        ):
             return response.json()
         return response.content
 
@@ -149,13 +151,16 @@ async def cy(as_user: Callable[[str], Api]) -> Api:
     return api
 
 
-async def make_board(api: Api, name: str = "Product", columns: tuple[str, ...] = ("Doing", "Review"),
-                     **kw: Any) -> dict[str, Any]:
+async def make_board(
+    api: Api, name: str = "Product", columns: tuple[str, ...] = ("Doing", "Review"), **kw: Any
+) -> dict[str, Any]:
     body = {"name": name, "columns": [{"name": c, "color": "blue"} for c in columns], **kw}
     return await api.post("/boards", body)  # type: ignore[no-any-return]
 
 
-async def make_card(api: Api, board_id: str, title: str = "Fix the login loop", **kw: Any) -> dict[str, Any]:
+async def make_card(
+    api: Api, board_id: str, title: str = "Fix the login loop", **kw: Any
+) -> dict[str, Any]:
     return (await api.post(f"/boards/{board_id}/cards", {"title": title, **kw}))["card"]  # type: ignore[no-any-return]
 
 
