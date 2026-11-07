@@ -35,7 +35,7 @@ export function SearchBox() {
   return (
     <Popover.Root open={open && q.length > 0} onOpenChange={setOpen}>
       <Popover.Anchor asChild>
-        <div className="flex w-72 items-center gap-1.5 rounded-lg border border-line bg-surface-2 px-2 focus-within:border-accent focus-within:bg-surface">
+        <div className="flex w-full max-w-72 min-w-0 items-center gap-1.5 rounded-lg border border-line bg-surface-2 px-2 focus-within:border-accent focus-within:bg-surface">
           <Icon name="search" size={14} className="text-ink-3" />
           <input
             ref={input}
@@ -55,7 +55,9 @@ export function SearchBox() {
             aria-label="Search"
             className="min-w-0 flex-1 bg-transparent py-1.5 text-[13px] outline-none placeholder:text-ink-3"
           />
-          <Kbd>/</Kbd>
+          <span className="hidden sm:inline">
+            <Kbd>/</Kbd>
+          </span>
         </div>
       </Popover.Anchor>
       <Popover.Portal>
@@ -63,7 +65,7 @@ export function SearchBox() {
           align="start"
           sideOffset={6}
           onOpenAutoFocus={(e) => e.preventDefault()}
-          className="z-50 max-h-[60vh] w-[440px] overflow-y-auto rounded-xl border border-line bg-surface p-1 shadow-lift"
+          className="z-50 max-h-[60vh] w-[min(440px,calc(100vw-32px))] overflow-y-auto rounded-xl border border-line bg-surface p-1 shadow-lift"
         >
           {results.isFetching && hits.length === 0 && <p className="p-3 text-[13px] text-ink-3">Searching…</p>}
           {!results.isFetching && hits.length === 0 && <p className="p-3 text-[13px] text-ink-3">No cards match “{q}”.</p>}

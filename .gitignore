@@ -11,6 +11,7 @@ backend/.seltzer-files/
 # Frontend
 node_modules/
 frontend/dist/
+frontend/dist-demo/
 backend/seltzer/static/
 
 # Databricks

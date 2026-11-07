@@ -16,7 +16,8 @@ import { applyTile, cardApi, keys, refreshAfterCardWrite, useCard, useTags, useU
 import { describe } from "../lib/events";
 import { ago, daysUntil, fullTime } from "../lib/time";
 import { isEmptyDoc, RichTextEditor, RichTextView } from "./RichText";
-import { Avatar, Button, errorText, Icon, Kbd, useToast } from "./ui";
+import { isDemo } from "../lib/demo";
+import { Avatar, Button, ConfirmButton, errorText, Icon, Kbd, useToast } from "./ui";
 
 const QUICK_REACTIONS = ["👍", "🎉", "❤️", "👀", "🙏"];
 
@@ -86,7 +87,7 @@ function SheetBody({ detail, columns, onClose }: { detail: CardDetail; columns: 
 
   return (
     <>
-      <header className="flex items-center gap-2 border-b border-line px-5 py-3">
+      <header className="flex items-center gap-2 border-b border-line px-4 py-3 md:px-5">
         <span className="font-mono text-[12px] text-ink-3">#{tile.number}</span>
         <span
           className="inline-flex items-center gap-1.5 rounded-full bg-surface-2 px-2 py-0.5 text-[12px] font-medium text-ink-2"
@@ -108,8 +109,8 @@ function SheetBody({ detail, columns, onClose }: { detail: CardDetail; columns: 
         </Dialog.Close>
       </header>
 
-      <div className="flex min-h-0 flex-1">
-        <div className="min-w-0 flex-1 overflow-y-auto px-5 py-4">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto md:flex-row md:overflow-hidden">
+        <div className="min-w-0 flex-1 px-4 py-4 md:overflow-y-auto md:px-5">
           <TitleField detail={detail} onSave={(title) => run(() => cardApi.edit(tile.number, { title, version: tile.version }))} />
           {tile.closing_soon && tile.auto_postpone_at && (
             <p className="mt-2 flex items-center gap-1.5 rounded-md bg-surface-2 px-2.5 py-1.5 text-[12.5px] text-ink-2">
@@ -158,7 +159,7 @@ function SheetBody({ detail, columns, onClose }: { detail: CardDetail; columns: 
           </section>
         </div>
 
-        <aside className="w-56 shrink-0 space-y-4 overflow-y-auto border-l border-line bg-surface-2/50 px-4 py-4">
+        <aside className="shrink-0 space-y-4 border-t border-line bg-surface-2/50 px-4 py-4 md:w-56 md:overflow-y-auto md:border-t-0 md:border-l">
           {isDraft ? (
             <Button variant="primary" className="w-full justify-center" onClick={() => run(() => cardApi.publish(tile.number), "Published to Maybe?")}>
               Publish to Maybe?
@@ -236,19 +237,19 @@ function SheetBody({ detail, columns, onClose }: { detail: CardDetail; columns: 
 
           {detail.can_delete && (
             <div className="border-t border-line pt-3">
-              <Button
-                variant="danger"
-                className="w-full"
-                onClick={async () => {
-                  if (!window.confirm(`Delete #${tile.number} “${tile.title}”? Its history stays in the timeline.`)) return;
+              <ConfirmButton
+                prompt={`Delete #${tile.number}? Its history stays in the timeline.`}
+                confirmLabel="Delete card"
+                onConfirm={async () => {
                   await run(async () => {
                     await call(api.DELETE("/api/cards/{number}", { params: { path: { number: tile.number } } }));
                   });
                   onClose();
                 }}
+                className="inline-flex w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[13px] font-medium text-danger hover:bg-danger-soft"
               >
                 <Icon name="trash" size={14} /> Delete card
-              </Button>
+              </ConfirmButton>
             </div>
           )}
         </aside>
@@ -605,13 +606,19 @@ function Attachments({ detail }: { detail: CardDetail }) {
         <input ref={input} type="file" multiple hidden onChange={(e) => void upload(e.target.files)} />
       </div>
       {detail.attachments.length > 0 && (
-        <ul className="grid grid-cols-2 gap-2">
+        <ul className="grid gap-2 sm:grid-cols-2">
           {detail.attachments.map((a) => (
             <li key={a.id} className="group flex items-center gap-2 rounded-lg border border-line px-2 py-1.5">
               <Icon name="clip" size={14} className="text-ink-3" />
-              <a href={`/api/attachments/${a.id}`} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate text-[13px] hover:underline">
-                {a.filename}
-              </a>
+              {isDemo ? (
+                <span className="min-w-0 flex-1 truncate text-[13px]" title="Downloads are off in the preview">
+                  {a.filename}
+                </span>
+              ) : (
+                <a href={`/api/attachments/${a.id}`} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate text-[13px] hover:underline">
+                  {a.filename}
+                </a>
+              )}
               <span className="text-[11px] text-ink-3">{formatBytes(a.bytes)}</span>
               <button
                 type="button"

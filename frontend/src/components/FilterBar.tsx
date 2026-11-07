@@ -70,7 +70,7 @@ export function FilterBar({ snap, people, filters, onChange }: Props) {
         </button>
       )}
       <span className="flex-1" />
-      <span className="text-[12px] text-ink-3">
+      <span className="hidden text-[12px] text-ink-3 md:inline">
         {snap.board.counts.open} open · auto-postpone after {snap.board.effective_auto_postpone_days} days idle
       </span>
     </div>

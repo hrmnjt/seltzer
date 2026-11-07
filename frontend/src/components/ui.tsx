@@ -106,6 +106,19 @@ export function Avatar({ user, size = 22 }: { user?: UserBrief; size?: number })
   );
 }
 
+/* Brand mark: bubbles rising in a glass, drawn for Seltzer. */
+export function Logo({ size = 24 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
+      <rect width="32" height="32" rx="8" fill="var(--accent)" />
+      <circle cx="11" cy="21" r="4" fill="var(--accent-ink)" />
+      <circle cx="20" cy="13" r="3" fill="var(--accent-ink)" />
+      <circle cx="14" cy="9" r="2" fill="var(--accent-ink)" />
+      <circle cx="22" cy="22" r="2" fill="var(--accent-ink)" />
+    </svg>
+  );
+}
+
 /* Buttons */
 type Variant = "primary" | "quiet" | "ghost" | "danger";
 const VARIANTS: Record<Variant, string> = {
@@ -126,6 +139,56 @@ export function Button({
       {...props}
       className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[13px] font-medium transition disabled:opacity-50 ${VARIANTS[variant]} ${className}`}
     />
+  );
+}
+
+/**
+ * A destructive action that asks once, in place. (Browser confirm dialogs are blocked in
+ * embedded views and break the flow everywhere else.)
+ */
+export function ConfirmButton({
+  children,
+  prompt,
+  confirmLabel = "Delete",
+  onConfirm,
+  className = "",
+  ariaLabel,
+  compact = false,
+}: {
+  children: ReactNode;
+  prompt: string;
+  confirmLabel?: string;
+  onConfirm: () => void;
+  className?: string;
+  ariaLabel?: string;
+  compact?: boolean;
+}) {
+  const [asking, setAsking] = useState(false);
+  if (asking) {
+    return (
+      <div role="alertdialog" aria-label={prompt} className={`flex flex-wrap items-center gap-1.5 ${compact ? "" : "rounded-md bg-danger-soft p-2"}`}>
+        {!compact && <p className="w-full text-[12.5px] text-ink">{prompt}</p>}
+        <Button
+          variant="danger"
+          autoFocus
+          className="!py-1 ring-1 ring-danger"
+          onClick={() => {
+            setAsking(false);
+            onConfirm();
+          }}
+        >
+          {confirmLabel}
+        </Button>
+        <Button variant="ghost" className="!py-1" onClick={() => setAsking(false)}>
+          Cancel
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <button type="button" onClick={() => setAsking(true)} aria-label={ariaLabel} className={className}>
+      {children}
+    </button>
   );
 }
 

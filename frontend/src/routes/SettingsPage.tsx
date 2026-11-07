@@ -33,7 +33,7 @@ export function SettingsPage() {
     act(() => call(api.PATCH("/api/users/{user_id}", { params: { path: { user_id: u.id } }, body })));
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8 px-6 py-6">
+    <div className="mx-auto max-w-3xl space-y-8 px-4 py-6 sm:px-6">
       <section>
         <h1 className="mb-1 text-[18px] font-semibold">Workspace settings</h1>
         <p className="text-[13px] text-ink-2">
@@ -63,7 +63,8 @@ export function SettingsPage() {
 
       <section>
         <h2 className="mb-2 text-[14px] font-semibold">People</h2>
-        <table className="w-full text-[13px]">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[480px] text-[13px]">
           <thead className="text-left text-[11.5px] text-ink-3 uppercase">
             <tr>
               <th className="py-1.5 font-semibold">Person</th>
@@ -108,6 +109,7 @@ export function SettingsPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </section>
     </div>
   );

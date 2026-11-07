@@ -45,7 +45,7 @@ export function NotificationTray() {
         <Popover.Content
           align="end"
           sideOffset={6}
-          className="z-50 flex max-h-[70vh] w-[380px] flex-col rounded-xl border border-line bg-surface shadow-lift"
+          className="z-50 flex max-h-[70vh] w-[min(380px,calc(100vw-32px))] flex-col rounded-xl border border-line bg-surface shadow-lift"
         >
           <header className="flex items-center justify-between border-b border-line px-3 py-2">
             <span className="text-[13px] font-semibold">Notifications</span>

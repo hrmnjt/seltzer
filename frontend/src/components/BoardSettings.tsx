@@ -3,7 +3,7 @@ import { Dialog } from "radix-ui";
 import { useEffect, useState } from "react";
 import { api, type BoardSnapshot, COLUMN_COLORS, call, colorVar, type ColumnOut } from "../api/client";
 import { keys, useUsers } from "../api/hooks";
-import { Avatar, Button, errorText, Icon, useToast } from "./ui";
+import { Avatar, Button, ConfirmButton, errorText, Icon, useToast } from "./ui";
 
 const PERIODS = [3, 7, 14, 30, 60, 90, 180, 365];
 
@@ -35,7 +35,7 @@ export function BoardSettings({ snap, open, onOpenChange }: { snap: BoardSnapsho
         <Dialog.Overlay className="fixed inset-0 z-30 bg-black/25" />
         <Dialog.Content
           aria-describedby={undefined}
-          className="fixed top-1/2 left-1/2 z-40 max-h-[85vh] w-[560px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-line bg-surface p-5 shadow-lift"
+          className="fixed top-1/2 left-1/2 z-40 max-h-[85%] w-[560px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-line bg-surface p-5 shadow-lift"
         >
           <div className="mb-4 flex items-center">
             <Dialog.Title className="text-[16px] font-semibold">Board settings</Dialog.Title>
@@ -139,17 +139,17 @@ function Columns({ snap, act }: { snap: BoardSnapshot; act: (fn: () => Promise<u
             <button type="button" disabled={i === cols.length - 1} onClick={() => move(c, 1)} className="rounded px-1 text-ink-3 hover:bg-surface-2 disabled:opacity-30" aria-label="Move right">
               →
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (window.confirm(`Delete “${c.name}”? Its open cards go back to Maybe?.`))
-                  void act(() => call(api.DELETE("/api/columns/{column_id}", { params: { path: { column_id: c.id } } })));
-              }}
+            <ConfirmButton
+              compact
+              prompt={`Delete ${c.name}? Its open cards go back to Maybe?.`}
+              onConfirm={() =>
+                void act(() => call(api.DELETE("/api/columns/{column_id}", { params: { path: { column_id: c.id } } })))
+              }
               className="rounded p-0.5 text-ink-3 hover:text-danger"
-              aria-label={`Delete ${c.name}`}
+              ariaLabel={`Delete ${c.name}`}
             >
               <Icon name="trash" size={14} />
-            </button>
+            </ConfirmButton>
           </li>
         ))}
       </ul>

@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
+  createMemoryHistory,
   createRootRoute,
   createRoute,
   createRouter,
@@ -14,7 +15,8 @@ import { ApiError, api, call } from "./api/client";
 import { useMe } from "./api/hooks";
 import { NotificationTray } from "./components/NotificationTray";
 import { SearchBox } from "./components/SearchBox";
-import { Avatar, Icon, ToastProvider } from "./components/ui";
+import { Avatar, Icon, Logo, ToastProvider } from "./components/ui";
+import { isDemo } from "./lib/demo";
 import { BoardPage, type BoardSearch } from "./routes/BoardPage";
 import { Home } from "./routes/Home";
 import { SettingsPage } from "./routes/SettingsPage";
@@ -43,13 +45,20 @@ function Shell() {
   }
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center gap-4 border-b border-line bg-surface px-4 py-2">
-        <Link to="/" className="flex items-center gap-2 text-[15px] font-bold tracking-tight">
-          <img src="/favicon.svg" alt="" className="size-6" />
-          Seltzer
+      {isDemo && (
+        <p className="border-b border-line bg-accent-soft px-4 py-1.5 text-[12.5px] text-ink">
+          <strong>Design preview.</strong> Sample data that runs in your browser; changes reset on reload. Comment on
+          anything you want changed.
+        </p>
+      )}
+      <header className="flex items-center gap-2 border-b border-line bg-surface px-4 py-2 sm:gap-4">
+        <Link to="/" className="flex shrink-0 items-center gap-2 text-[15px] font-bold tracking-tight" aria-label="Seltzer home">
+          <Logo />
+          <span className="hidden sm:inline">Seltzer</span>
         </Link>
-        <SearchBox />
-        <span className="flex-1" />
+        <div className="flex min-w-0 flex-1">
+          <SearchBox />
+        </div>
         <NotificationTray />
         <Link to="/settings" className="rounded-md p-1.5 text-ink-2 hover:bg-surface-2 hover:text-ink" aria-label="Workspace settings">
           <Icon name="gear" size={18} />
@@ -99,6 +108,8 @@ const settingsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/set
 
 const router = createRouter({
   routeTree: rootRoute.addChildren([homeRoute, boardRoute, cardRoute, settingsRoute]),
+  // Embedded previews can't change the page URL, so the demo keeps its history in memory.
+  history: isDemo ? createMemoryHistory({ initialEntries: ["/"] }) : undefined,
   defaultPreload: "intent",
 });
 

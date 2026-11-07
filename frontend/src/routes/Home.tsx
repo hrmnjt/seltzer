@@ -13,7 +13,7 @@ export function Home() {
   const pins = usePins();
 
   return (
-    <div className="mx-auto grid max-w-6xl gap-8 px-6 py-6 lg:grid-cols-[1fr_360px]">
+    <div className="mx-auto grid max-w-6xl gap-8 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_360px]">
       <div className="space-y-8">
         <section>
           <div className="mb-3 flex items-center">

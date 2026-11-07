@@ -29,13 +29,13 @@ export function BoardPage({ boardId, search }: { boardId: string; search: BoardS
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center gap-3 px-4 pt-4 pb-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 pt-4 pb-3">
         <h1 className="text-[18px] font-semibold">{snap.board.name}</h1>
         {!snap.board.all_access && <span className="rounded-full bg-surface-2 px-2 text-[11.5px] text-ink-3">restricted</span>}
         {snap.board.archived_at && <span className="rounded-full bg-danger-soft px-2 text-[11.5px] text-danger">archived</span>}
         <span className="flex-1" />
         {snap.drafts.length > 0 && (
-          <span className="text-[12.5px] text-ink-3">
+          <span className="hidden text-[12.5px] text-ink-3 sm:inline">
             Your drafts:{" "}
             {snap.drafts.map((d) => (
               <button type="button" key={d.id} onClick={() => setSearch({ ...search, card: d.number })} className="ml-1 text-accent hover:underline">
