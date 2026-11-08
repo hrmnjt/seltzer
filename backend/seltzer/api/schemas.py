@@ -158,7 +158,6 @@ class CardTile(BaseModel):
     column_id: uuid.UUID | None
     status: CardStatus
     state: CardState
-    position: str
     golden: bool
     auto_postponed: bool
     tags: list[TagOut]
@@ -193,8 +192,6 @@ class CardPatch(BaseModel):
 
 class TriageIn(BaseModel):
     column_id: uuid.UUID
-    above: uuid.UUID | None = Field(default=None, description="Card shown above the drop point")
-    below: uuid.UUID | None = Field(default=None, description="Card shown below the drop point")
 
 
 class PlaceIn(BaseModel):

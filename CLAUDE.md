@@ -42,8 +42,11 @@ then `cd frontend && npm run api:types`. After changing backend dependencies: re
   writes the event, touches the card (resets auto-postpone), bumps the board version and fans out
   notifications. A write that changes the board screen without an event still calls
   `ctx.bump_board()`.
-- Ordering uses fractional keys (`seltzer/ordering.py`, mirrored in `frontend/src/lib/ordering.ts`).
-  Place items with `domain/positions.place()` using neighbour ids, never raw keys.
+- Cards are never positioned. Every lane (Maybe?, a column, Not Now, Done) lists golden cards first,
+  then by `last_active_at`; a move records an event, which touches the card, so it lands on top.
+  The board keeps Maybe? open beside one focused lane (`components/BoardCanvas.tsx`), as Fizzy does.
+- Columns, steps and pins use fractional keys (`seltzer/ordering.py`, mirrored in
+  `frontend/src/lib/ordering.ts`). Place them with `domain/positions.place()` using neighbour ids.
 - Permissions live in `domain/permissions.py` (`get_board`, `get_card`, `visible_boards`). Every
   endpoint that takes an id goes through one of them.
 - Rich text is Tiptap JSON, validated by `seltzer/richtext.py`. The UI renders it with

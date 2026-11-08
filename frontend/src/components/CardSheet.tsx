@@ -298,7 +298,13 @@ function MoveMenu({ tile, columns, run }: { tile: CardTile; columns: ColumnOut[]
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content align="end" sideOffset={4} className="z-50 min-w-48 rounded-lg border border-line bg-surface p-1 shadow-lift">
-          {tile.state === "active" && tile.column_id && (
+          {/* Every lane takes a card from every other; the card lands on top. */}
+          {tile.state === "not_now" ? null : (
+            <MenuItem onSelect={() => run(() => cardApi.postpone(tile.number))}>
+              <Icon name="clock" size={13} /> Not Now
+            </MenuItem>
+          )}
+          {!(tile.state === "active" && !tile.column_id) && (
             <MenuItem onSelect={() => run(() => cardApi.untriage(tile.number))}>Maybe?</MenuItem>
           )}
           {columns
@@ -309,7 +315,11 @@ function MoveMenu({ tile, columns, run }: { tile: CardTile; columns: ColumnOut[]
                 {c.name}
               </MenuItem>
             ))}
-          {columns.length === 0 && <p className="px-2 py-1.5 text-[12px] text-ink-3">This board has no columns yet.</p>}
+          {tile.state === "done" ? null : (
+            <MenuItem onSelect={() => run(() => cardApi.close(tile.number))}>
+              <Icon name="check" size={13} /> Done
+            </MenuItem>
+          )}
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
     </DropdownMenu.Root>

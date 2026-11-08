@@ -66,7 +66,12 @@ export function BoardPage({ boardId, search }: { boardId: string; search: BoardS
         onChange={(f) => setSearch({ card: search.card, ...f })}
       />
       <div className="min-h-0 flex-1">
-        <BoardCanvas snap={snap} filters={filters} onOpen={(n) => setSearch({ ...search, card: n })} />
+        <BoardCanvas
+          snap={snap}
+          filters={filters}
+          onOpen={(n) => setSearch({ ...search, card: n })}
+          onAddColumn={snap.board.can_admin ? () => setSettingsOpen(true) : undefined}
+        />
       </div>
       {search.card != null && (
         <Suspense fallback={null}>

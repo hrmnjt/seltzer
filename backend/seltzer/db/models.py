@@ -157,7 +157,8 @@ class Card(Base):
         CheckConstraint("state in ('active', 'not_now', 'done')", name="state"),
         CheckConstraint("state <> 'not_now' or column_id is null", name="not_now_has_no_column"),
         CheckConstraint("status = 'published' or column_id is null", name="draft_has_no_column"),
-        Index("ix_cards_board_state", "board_id", "state", "column_id", "position"),
+        # Lanes list golden cards first, then the most recently active.
+        Index("ix_cards_board_state", "board_id", "state", "column_id", "last_active_at"),
         Index(
             "ix_cards_sweep",
             "last_active_at",
@@ -191,7 +192,6 @@ class Card(Base):
         Boolean, default=False, server_default=text("false")
     )
     golden_at: Mapped[datetime | None]
-    position: Mapped[str] = mapped_column(Position)
     last_active_at: Mapped[datetime] = mapped_column(server_default=func.now())
     published_at: Mapped[datetime | None]
     created_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))

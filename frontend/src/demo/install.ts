@@ -9,6 +9,19 @@ import { type Card, newId, plainText, Problem, Store } from "./store";
 const store = new Store();
 seed(store);
 
+// First visit: open "Building" next to Maybe? so the two-lane layout shows straight away.
+try {
+  const platform = store.boards.find((b) => b.name === "Platform");
+  const building = store.columns.find((c) => c.board_id === platform?.id && c.name === "Building");
+  const key = `seltzer:open-lane:${platform?.id}`;
+  if (platform && building && !sessionStorage.getItem("seltzer:preview-opened")) {
+    localStorage.setItem(key, building.id);
+    sessionStorage.setItem("seltzer:preview-opened", "1");
+  }
+} catch {
+  /* storage can be unavailable */
+}
+
 type Handler = (m: string[], q: URLSearchParams, body: Record<string, unknown>, req: Request) => unknown | Promise<unknown>;
 const routes: [string, RegExp, Handler][] = [];
 const on = (method: string, pattern: string, handler: Handler) =>
@@ -184,9 +197,8 @@ on("POST", "/cards/:n/publish", act((c) => {
   if (c.status !== "draft") throw new Problem(409, "Conflict", "This card is already published");
   store.publish(c);
 }));
-on("POST", "/cards/:n/triage", act((c, b) => store.triage(c, String(b.column_id), b.above as string, b.below as string)));
-on("POST", "/cards/:n/untriage", act((c, b) => store.untriage(c, b.above as string, b.below as string)));
-on("POST", "/cards/:n/reorder", act((c, b) => store.reorder(c, b.above as string, b.below as string)));
+on("POST", "/cards/:n/triage", act((c, b) => store.triage(c, String(b.column_id))));
+on("POST", "/cards/:n/untriage", act((c) => store.untriage(c)));
 on("POST", "/cards/:n/postpone", act((c) => store.postpone(c)));
 on("POST", "/cards/:n/resume", act((c) => store.resume(c)));
 on("POST", "/cards/:n/close", act((c) => store.close(c)));

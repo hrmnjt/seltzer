@@ -1,9 +1,15 @@
 """The card lifecycle.
 
 States: Draft -> Maybe? (active, no column) -> a column (active) -> Done.
-Postponing (by hand or after inactivity) sends an open card to Not Now and
-clears its column; resuming returns it to Maybe?. Closing keeps the column, so
-reopening puts the card back where it was. Golden is a flag, not a state.
+Postponing (by hand or after inactivity) sends a card to Not Now and clears its
+column; resuming returns it to Maybe?. Closing keeps the column, so reopening
+puts the card back where it was. Golden is a flag, not a state.
+
+Cards are never placed by hand. Every lane lists golden cards first, then the
+most recently active, and every move records an event that touches the card,
+so a card dropped on a lane lands at its top and idle cards sink until the
+sweep moves them to Not Now. A card can be dropped on any lane from any state:
+the transitions it needs on the way (resume, reopen) are recorded too.
 """
 
 from __future__ import annotations
@@ -11,7 +17,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from sqlalchemy import and_, delete, select
+from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from seltzer import richtext
@@ -20,7 +26,6 @@ from seltzer.domain import activity
 from seltzer.domain.context import Ctx
 from seltzer.domain.errors import Conflict, Forbidden, Invalid, NotFound
 from seltzer.domain.permissions import can_admin_board, can_see_board, get_board
-from seltzer.domain.positions import place
 
 MAX_TITLE = 300
 
@@ -44,26 +49,6 @@ def _check_description(doc: dict[str, Any] | None) -> tuple[dict[str, Any] | Non
     return doc, richtext.plain_text(doc)
 
 
-def lane(card: Card, column_id: uuid.UUID | None) -> Any:
-    """The ordered list a card sits in: Maybe? (no column) or one column."""
-    base = and_(Card.board_id == card.board_id, Card.status == "published", Card.state == "active")
-    return base & (Card.column_id.is_(None) if column_id is None else Card.column_id == column_id)
-
-
-async def _position(
-    ctx: Ctx, card: Card, column_id: uuid.UUID | None, above: Any = None, below: Any = None
-) -> str:
-    return await place(
-        ctx,
-        Card,
-        lane(card, column_id),
-        key_col=Card.id,
-        item_key=card.id,
-        above=above,
-        below=below,
-    )
-
-
 def _set_state(ctx: Ctx, card: Card, state: str, *, auto: bool = False) -> None:
     card.state = state
     card.state_changed_at = ctx.now
@@ -84,7 +69,6 @@ async def create(
         state="active",
         created_by=ctx.me.id,
         last_active_at=ctx.now,
-        position="V",
         created_at=ctx.now,
         updated_at=ctx.now,
     )
@@ -101,7 +85,6 @@ async def _publish(ctx: Ctx, card: Card, mentions: set[uuid.UUID]) -> None:
     card.status = "published"
     card.published_at = ctx.now
     card.column_id = None
-    card.position = await _position(ctx, card, None)
     await activity.record(ctx, "published", board_id=card.board_id, card=card, mentions=mentions)
 
 
@@ -112,25 +95,31 @@ async def publish(ctx: Ctx, card: Card) -> Card:
     return card
 
 
-async def triage(
-    ctx: Ctx, card: Card, column_id: uuid.UUID, *, above: Any = None, below: Any = None
-) -> Card:
-    """Place a card in a column, or move it within or between columns.
+async def _reopen(ctx: Ctx, card: Card) -> None:
+    _set_state(ctx, card, "active")
+    await activity.record(ctx, "reopened", board_id=card.board_id, card=card)
 
-    Works from Not Now and Done too: the card resumes or reopens on the way.
-    """
+
+async def _resume(ctx: Ctx, card: Card) -> None:
+    _set_state(ctx, card, "active")
+    card.column_id = None
+    await activity.record(ctx, "resumed", board_id=card.board_id, card=card)
+
+
+async def triage(ctx: Ctx, card: Card, column_id: uuid.UUID) -> Card:
+    """Move a card into a column. From Not Now or Done it resumes or reopens on the way."""
     _require_published(card)
     column = await ctx.db.get(Column, column_id)
     if column is None or column.board_id != card.board_id:
         raise NotFound("No such column on this board")
+    if card.state == "active" and card.column_id == column.id:
+        raise Conflict("The card is already in this column", current=card.state)
     previous = card.column_id
     if card.state == "not_now":
-        await _resume(ctx, card, place_in_maybe=False)
+        await _resume(ctx, card)
         previous = None
     elif card.state == "done":
-        _set_state(ctx, card, "active")
-        await activity.record(ctx, "reopened", board_id=card.board_id, card=card)
-    card.position = await _position(ctx, card, column.id, above, below)
+        await _reopen(ctx, card)
     card.column_id = column.id
     if previous is None:
         await activity.record(
@@ -154,25 +143,22 @@ async def triage(
                 "column": column.name,
             },
         )
-    else:
-        await ctx.bump_board(card.board_id)  # a reorder: no stamp, but pollers refresh
     return card
 
 
-async def reorder_in_maybe(ctx: Ctx, card: Card, *, above: Any = None, below: Any = None) -> Card:
-    if card.state != "active" or card.column_id is not None:
-        raise Conflict("Only cards in Maybe? can be reordered there")
-    card.position = await _position(ctx, card, None, above, below)
-    await ctx.bump_board(card.board_id)
-    return card
-
-
-async def untriage(ctx: Ctx, card: Card, *, above: Any = None, below: Any = None) -> Card:
+async def untriage(ctx: Ctx, card: Card) -> Card:
+    """Send a card to Maybe?, from a column, Not Now or Done."""
     _require_published(card)
-    if card.state != "active" or card.column_id is None:
-        raise Conflict("Only cards in a column can go back to Maybe?", current=card.state)
+    if card.state == "not_now":
+        await _resume(ctx, card)
+        return card
+    if card.state == "active" and card.column_id is None:
+        raise Conflict("The card is already in Maybe?", current=card.state)
+    if card.state == "done":
+        await _reopen(ctx, card)
+        if card.column_id is None:  # it was closed from Maybe?, so it reopens there
+            return card
     old = await ctx.db.get(Column, card.column_id)
-    card.position = await _position(ctx, card, None, above, below)
     card.column_id = None
     await activity.record(
         ctx,
@@ -185,9 +171,12 @@ async def untriage(ctx: Ctx, card: Card, *, above: Any = None, below: Any = None
 
 
 async def postpone(ctx: Ctx, card: Card, *, auto: bool = False) -> Card:
+    """Move a card to Not Now, from Maybe?, a column or Done."""
     _require_published(card)
-    if card.state != "active":
-        raise Conflict("Only open cards can be postponed", current=card.state)
+    if card.state == "not_now":
+        raise Conflict("This card is already in Not Now", current=card.state)
+    if auto and card.state != "active":
+        raise Conflict("Only open cards are postponed automatically", current=card.state)
     old_column = card.column_id
     _set_state(ctx, card, "not_now", auto=auto)
     card.column_id = None
@@ -199,14 +188,6 @@ async def postpone(ctx: Ctx, card: Card, *, auto: bool = False) -> Card:
         details={"from_column_id": str(old_column) if old_column else None},
     )
     return card
-
-
-async def _resume(ctx: Ctx, card: Card, *, place_in_maybe: bool = True) -> None:
-    _set_state(ctx, card, "active")
-    card.column_id = None
-    if place_in_maybe:
-        card.position = await _position(ctx, card, None)
-    await activity.record(ctx, "resumed", board_id=card.board_id, card=card)
 
 
 async def resume(ctx: Ctx, card: Card) -> Card:
@@ -227,13 +208,12 @@ async def close(ctx: Ctx, card: Card) -> Card:
 
 
 async def reopen(ctx: Ctx, card: Card) -> Card:
+    """Done back to open. The column was kept on close; if it was deleted since,
+    the card lands in Maybe?."""
     _require_published(card)
     if card.state != "done":
         raise Conflict("Only done cards can be reopened", current=card.state)
-    _set_state(ctx, card, "active")
-    # The column was kept on close; if it was deleted since, the card lands in Maybe?.
-    card.position = await _position(ctx, card, card.column_id)
-    await activity.record(ctx, "reopened", board_id=card.board_id, card=card)
+    await _reopen(ctx, card)
     return card
 
 
@@ -307,8 +287,6 @@ async def _change_board(ctx: Ctx, card: Card, board_id: uuid.UUID) -> None:
     await ctx.bump_board(source.id)
     card.board_id = target.id
     card.column_id = None
-    if card.status == "published" and card.state == "active":
-        card.position = await _position(ctx, card, None)
     if card.status == "published":
         await activity.record(
             ctx,

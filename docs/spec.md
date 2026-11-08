@@ -42,6 +42,7 @@ charts, time tracking, imports from Trello or Jira, and public boards.
 | Card numbers per workspace or per board? | **Per workspace** (Fizzy's way), so `/cards/42` is unique. |
 | Rich-text format | **Tiptap JSON**, validated on the server against a node and mark allowlist; plain text is derived for search. |
 | Attachment size and previews | **25 MB** default (`SELTZER_MAX_UPLOAD_MB`), **no thumbnails** in v1. Images and PDFs open inline in a sandbox; everything else downloads. |
+| Board layout | **Fizzy's two-lane board.** Maybe? stays open beside one lane you choose; every other lane folds into a strip that still takes drops. Cards are never placed by hand: they land on top of whatever lane they're dropped on, and lanes sort by activity. |
 | Out-of-app notifications | Still open; comes after v1 (Slack or Teams webhooks, or SMTP from a secret). |
 
 ## Product concepts
@@ -71,9 +72,11 @@ through coloured columns to Done, and anything ignored drifts into Not Now on it
 **Key screens**
 
 1. Home: your boards, pinned cards, and an activity timeline grouped by day.
-2. Board: Maybe? on the left, then the coloured columns, then Not Now and Done. Columns expand and
-   collapse. Filters cover open, golden and closing soon, plus assignee and tag. Not Now and Done
-   open as lists sorted by when the card moved there.
+2. Board: lanes sit in a fixed row: Not Now, Maybe?, the coloured columns, then Done. Only two
+   are open at once on a wide screen: Maybe? and the lane you focus on. The rest fold into narrow
+   strips showing their name and count, and opening one folds the last. On a phone, one lane is
+   open at a time. Each board remembers your open lane. Drop a card on any lane, open or folded,
+   to move it there. Filters cover open, golden and closing soon, plus assignee and tag.
 3. Card: title, rich-text description, steps, tags, assignees, attachments, comments with
    reactions, and the stamp trail. Actions: move, Not Now, Done, gild, pin, watch, delete.
 4. Notifications: a tray that stacks updates per card, so ten edits read as one item.
@@ -107,8 +110,12 @@ returns it to Maybe?. Closing keeps the column, so reopening puts the card back 
   soon" shows once 75% of the period has passed.
 - Touching a card means any action that records an event. Each one updates `last_active_at`.
 - Golden is a flag, not a state. It survives moves and state changes until someone removes it.
-- **Changed in the build:** dragging a card from Not Now or Done straight into a column resumes or
-  reopens it on the way and records both events.
+- **Cards are never placed by hand** (changed to match Fizzy). Every lane lists golden cards
+  first, then the most recently active. A move is an event that touches the card, so a card
+  dropped on a lane lands on top, busy cards rise, and quiet ones sink until auto-postpone moves
+  them to Not Now. Dropping a card back on its own lane changes nothing.
+- Any lane takes a card from any other. Into a column from Not Now or Done resumes or reopens it
+  on the way; Done to Maybe? reopens it there; Done to Not Now postpones it. Each step is recorded.
 - **Changed in the build:** cards can be deleted by their author or a board admin. The event log
   keeps their history (a `deleted` event with the number and title).
 - **Changed in the build:** deleting a column sends its open cards to Maybe?; done cards forget the
@@ -172,9 +179,10 @@ the timeline, notifications and analytics.
 
 - IDs: UUIDv7 generated in the app, so they sort by time on any Postgres version. Cards also get a
   workspace-wide `number` from a sequence, for URLs like `/cards/42`.
-- Ordering: columns, cards, steps and pins use fractional-index strings, so a drag updates one row.
-  **Changed in the build:** position columns use `COLLATE "C"` so keys sort bytewise, and the API
-  takes neighbours (`above`, `below`) rather than raw keys.
+- Ordering: cards have no position. Lanes sort by `golden_at is null`, then `last_active_at`
+  descending (migration `0002`). Columns, steps and pins use fractional-index strings, so a drag
+  updates one row; those keys use `COLLATE "C"` to sort bytewise, and the API takes neighbours
+  (`above`, `below`) rather than raw keys.
 - Triage is implied: an active card with no `column_id` is in Maybe?. Not Now clears the column;
   Done keeps it. Check constraints ensure Not Now cards and drafts have no column.
 - Events are append-only and written in the same transaction as the change they describe.
@@ -189,7 +197,7 @@ the timeline, notifications and analytics.
 | `board_access` | Who can see a restricted board | `board_id`, `user_id` |
 | `board_watches` | Who follows a board | `board_id`, `user_id` |
 | `columns` | Workflow stages | `board_id`, `name`, `color`, `position` |
-| `cards` | Cards | `number`, `board_id`, `column_id`, `title`, `description` (Tiptap JSON), `description_text`, `status` (draft, published), `state` (active, not_now, done), `state_changed_at`, `state_changed_by`, `auto_postponed`, `golden_at`, `position`, `last_active_at`, `published_at`, `created_by`, `version`, `search` (generated tsvector) |
+| `cards` | Cards | `number`, `board_id`, `column_id`, `title`, `description` (Tiptap JSON), `description_text`, `status` (draft, published), `state` (active, not_now, done), `state_changed_at`, `state_changed_by`, `auto_postponed`, `golden_at`, `last_active_at`, `published_at`, `created_by`, `version`, `search` (generated tsvector) |
 | `steps` | Checklist items | `card_id`, `body`, `position`, `completed_at`, `completed_by` |
 | `tags`, `card_tags` | Labels, workspace-wide | `name` (unique, case-insensitive), `color` |
 | `assignments` | Card owners | `card_id`, `user_id`, `assigned_by` |
@@ -239,9 +247,9 @@ Interactive docs are at `/api/docs`.
 | `POST /api/boards/{id}/cards` | Create a card (draft or published) |
 | `GET`/`PATCH`/`DELETE /api/cards/{number}` | Card detail, edits (title, description, board), delete |
 | `POST /api/cards/{number}/publish` | Publish a draft into Maybe? |
-| `POST /api/cards/{number}/triage` | Place in a column, or move or reorder within columns |
-| `POST /api/cards/{number}/untriage` · `/reorder` | Send back to Maybe?, or reorder within it |
-| `POST /api/cards/{number}/postpone` · `/resume` | Not Now, and back to Maybe? |
+| `POST /api/cards/{number}/triage` | Move into a column, landing on top; works from any lane |
+| `POST /api/cards/{number}/untriage` | Move to Maybe?, from a column, Not Now or Done |
+| `POST /api/cards/{number}/postpone` · `/resume` | Not Now (from any lane), and back to Maybe? |
 | `POST /api/cards/{number}/close` · `/reopen` | Done, and back |
 | `PUT`/`DELETE /api/cards/{number}/golden` | Gild and ungild |
 | `PUT`/`DELETE /api/cards/{number}/tags/{tag}` · `/assignees/{user}` | Tags and assignees |
@@ -372,7 +380,7 @@ not a source.
 | Primitives | Radix UI | Accessible menus, dialogs and popovers |
 | Styling | Tailwind CSS on our own design tokens | Light and dark themes from one token set |
 
-Components: BoardCanvas, CardTile, Stamp, CardSheet (lazy-loaded with the editor), Composer,
+Components: BoardCanvas (the two-lane board: open lanes, folded strips, drop-anywhere moves), CardTile, Stamp, CardSheet (lazy-loaded with the editor), Composer,
 NotificationTray, FilterBar, SearchBox, BoardSettings, Timeline, Avatar.
 
 ## Deployment and environments
@@ -449,7 +457,7 @@ Gaps in the draft spec found while building v1, and how each was closed.
 | Tag, description and new-step changes recorded no event, so they wouldn't reset the auto-postpone clock | Added `tagged`, `untagged`, `description_changed`, `step_added`, `step_uncompleted` |
 | Card and column deletion were unspecified | Card delete keeps history via a `deleted` event; column delete sends open cards to Maybe? |
 | Stalled filter and bubble were on v1 screens but Later in scope | Removed from v1 screens |
-| Concurrent drags could compute the same position key | The API takes neighbours; the server always places between adjacent rows and rebalances long keys |
+| Concurrent drags could compute the same position key | Cards no longer have positions; for columns, steps and pins the API takes neighbours and the server places between adjacent rows |
 | Many endpoints the screens need were missing (people, tags, steps, comments, reactions, column delete, board watch, pins, settings) | Added; see the API table |
 | The sweep job runs as a different identity from the app, which owns the tables | Role grants after migrations; `run_as` the app's service principal once it exists |
 | Per-target settings (the Lakebase endpoint) can't live in a static `app.yaml` | App `config` in the bundle |

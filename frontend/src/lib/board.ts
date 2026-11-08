@@ -1,15 +1,17 @@
 import type { BoardSnapshot, CardTile } from "../api/client";
 
+/** Lane ids for the board canvas: Not Now, Maybe?, each column's id, and Done. */
 export const MAYBE = "lane:maybe";
 export const NOT_NOW = "lane:not_now";
 export const DONE = "lane:done";
 
 export type LaneId = string; // MAYBE or a column id
 
-/** Server order: golden cards first, then by fractional position. */
+/** The server's lane order: golden cards first, then the most recently active. */
 export function byLaneOrder(a: CardTile, b: CardTile): number {
   if (a.golden !== b.golden) return a.golden ? -1 : 1;
-  return a.position < b.position ? -1 : a.position > b.position ? 1 : 0;
+  if (a.last_active_at !== b.last_active_at) return a.last_active_at > b.last_active_at ? -1 : 1;
+  return a.id > b.id ? -1 : a.id < b.id ? 1 : 0;
 }
 
 export type Filters = {

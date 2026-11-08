@@ -196,7 +196,6 @@ async def tiles(ctx: Ctx, cards: Sequence[Card]) -> list[CardTile]:
                 column_id=c.column_id,
                 status=c.status,  # type: ignore[arg-type]
                 state=c.state,  # type: ignore[arg-type]
-                position=c.position,
                 golden=c.golden_at is not None,
                 auto_postponed=c.auto_postponed,
                 tags=tags.get(c.id, []),
@@ -293,8 +292,8 @@ async def list_boards(ctx: Ctx, *, include_archived: bool = False) -> list[Board
 
 
 def _lane_order(stmt: Select[Any]) -> Select[Any]:
-    # Golden cards sort to the top of their column (and of Maybe?).
-    return stmt.order_by(Card.golden_at.is_(None), Card.position)
+    # Every lane: golden cards first, then the most recently active. Nothing is placed by hand.
+    return stmt.order_by(Card.golden_at.is_(None), Card.last_active_at.desc(), Card.id.desc())
 
 
 async def snapshot(ctx: Ctx, board: Board) -> BoardSnapshot:

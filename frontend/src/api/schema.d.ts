@@ -304,26 +304,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/cards/{number}/reorder": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Reorder In Maybe
-         * @description Reorder a card within Maybe?. Use /triage to reorder within a column.
-         */
-        post: operations["reorder_in_maybe_api_cards__number__reorder_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/cards/{number}/resume": {
         parameters: {
             query?: never;
@@ -385,7 +365,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Triage */
+        /**
+         * Triage
+         * @description Move a card into a column; it lands at the top. Works from Not Now and Done.
+         */
         post: operations["triage_api_cards__number__triage_post"];
         delete?: never;
         options?: never;
@@ -402,7 +385,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Untriage */
+        /**
+         * Untriage
+         * @description Send a card to Maybe?, from a column, Not Now or Done.
+         */
         post: operations["untriage_api_cards__number__untriage_post"];
         delete?: never;
         options?: never;
@@ -972,8 +958,6 @@ export interface components {
             last_active_at: string;
             /** Number */
             number: number;
-            /** Position */
-            position: string;
             stamp: components["schemas"]["Stamp"] | null;
             /**
              * State
@@ -1312,16 +1296,6 @@ export interface components {
         };
         /** TriageIn */
         TriageIn: {
-            /**
-             * Above
-             * @description Card shown above the drop point
-             */
-            above?: string | null;
-            /**
-             * Below
-             * @description Card shown below the drop point
-             */
-            below?: string | null;
             /**
              * Column Id
              * Format: uuid
@@ -2299,41 +2273,6 @@ export interface operations {
             };
         };
     };
-    reorder_in_maybe_api_cards__number__reorder_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                number: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PlaceIn"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CardResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     resume_api_cards__number__resume_post: {
         parameters: {
             query?: never;
@@ -2508,11 +2447,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["PlaceIn"] | null;
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

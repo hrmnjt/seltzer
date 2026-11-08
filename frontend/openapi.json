@@ -691,10 +691,6 @@
             "title": "Number",
             "type": "integer"
           },
-          "position": {
-            "title": "Position",
-            "type": "string"
-          },
           "stamp": {
             "anyOf": [
               {
@@ -778,7 +774,6 @@
           "column_id",
           "status",
           "state",
-          "position",
           "golden",
           "auto_postponed",
           "tags",
@@ -1681,32 +1676,6 @@
       },
       "TriageIn": {
         "properties": {
-          "above": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Card shown above the drop point",
-            "title": "Above"
-          },
-          "below": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Card shown below the drop point",
-            "title": "Below"
-          },
           "column_id": {
             "format": "uuid",
             "title": "Column Id",
@@ -3231,59 +3200,6 @@
         ]
       }
     },
-    "/api/cards/{number}/reorder": {
-      "post": {
-        "description": "Reorder a card within Maybe?. Use /triage to reorder within a column.",
-        "operationId": "reorder_in_maybe_api_cards__number__reorder_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "number",
-            "required": true,
-            "schema": {
-              "title": "Number",
-              "type": "integer"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PlaceIn"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CardResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Reorder In Maybe",
-        "tags": [
-          "cards"
-        ]
-      }
-    },
     "/api/cards/{number}/resume": {
       "post": {
         "operationId": "resume_api_cards__number__resume_post",
@@ -3482,6 +3398,7 @@
     },
     "/api/cards/{number}/triage": {
       "post": {
+        "description": "Move a card into a column; it lands at the top. Works from Not Now and Done.",
         "operationId": "triage_api_cards__number__triage_post",
         "parameters": [
           {
@@ -3534,6 +3451,7 @@
     },
     "/api/cards/{number}/untriage": {
       "post": {
+        "description": "Send a card to Maybe?, from a column, Not Now or Done.",
         "operationId": "untriage_api_cards__number__untriage_post",
         "parameters": [
           {
@@ -3546,23 +3464,6 @@
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "anyOf": [
-                  {
-                    "$ref": "#/components/schemas/PlaceIn"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "title": "Body"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "content": {

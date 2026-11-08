@@ -182,27 +182,12 @@ export const cardApi = {
     ),
   edit: (number: number, body: Schemas["CardPatch"]) =>
     call(api.PATCH("/api/cards/{number}", { params: { path: { number } }, body })),
-  triage: (number: number, column_id: string, above?: string | null, below?: string | null) =>
-    call(
-      api.POST("/api/cards/{number}/triage", {
-        params: { path: { number } },
-        body: { column_id, above: above ?? null, below: below ?? null },
-      }),
-    ),
-  untriage: (number: number, above?: string | null, below?: string | null) =>
-    call(
-      api.POST("/api/cards/{number}/untriage", {
-        params: { path: { number } },
-        body: { above: above ?? null, below: below ?? null },
-      }),
-    ),
-  reorder: (number: number, above?: string | null, below?: string | null) =>
-    call(
-      api.POST("/api/cards/{number}/reorder", {
-        params: { path: { number } },
-        body: { above: above ?? null, below: below ?? null },
-      }),
-    ),
+  /** Into a column; it lands on top. Works from Maybe?, another column, Not Now or Done. */
+  triage: (number: number, column_id: string) =>
+    call(api.POST("/api/cards/{number}/triage", { params: { path: { number } }, body: { column_id } })),
+  /** To Maybe?, from a column, Not Now or Done. */
+  untriage: (number: number) =>
+    call(api.POST("/api/cards/{number}/untriage", { params: { path: { number } } })),
   publish: (number: number) =>
     call(api.POST("/api/cards/{number}/publish", { params: { path: { number } } })),
   postpone: (number: number) =>

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from tests.conftest import Api, make_board, make_card
+from typing import Any
+
+from tests.conftest import Api, age, make_board, make_card
 
 
 async def snapshot(api: Api, board_id: str) -> dict:
@@ -76,13 +78,17 @@ async def test_triage_from_not_now_and_done(ada: Api) -> None:
 
 async def test_invalid_transitions_are_conflicts(ada: Api) -> None:
     board = await make_board(ada)
+    doing = (await snapshot(ada, board["id"]))["columns"][0]["id"]
     card = await make_card(ada, board["id"])
     n = card["number"]
     problem = await ada.post(f"/cards/{n}/resume", expect=409)
     assert problem["status"] == 409 and problem["current"] == "active"
-    await ada.post(f"/cards/{n}/untriage", expect=409)
+    await ada.post(f"/cards/{n}/untriage", expect=409)  # already in Maybe?
+    await ada.post(f"/cards/{n}/triage", {"column_id": doing})
+    await ada.post(f"/cards/{n}/triage", {"column_id": doing}, expect=409)  # already there
     await ada.post(f"/cards/{n}/close")
     await ada.post(f"/cards/{n}/close", expect=409)
+    await ada.post(f"/cards/{n}/postpone")
     await ada.post(f"/cards/{n}/postpone", expect=409)
 
 
@@ -96,40 +102,66 @@ async def test_closing_from_not_now_reopens_into_maybe(ada: Api) -> None:
     assert card["state"] == "active" and card["column_id"] is None
 
 
-async def test_ordering_and_golden(ada: Api) -> None:
+async def test_lanes_sort_by_activity_with_golden_first(app: Any, ada: Api) -> None:
+    """Nothing is placed by hand: the most recently active card tops every lane."""
     board = await make_board(ada)
     doing = (await snapshot(ada, board["id"]))["columns"][0]["id"]
-    numbers = [(await make_card(ada, board["id"], f"Card {i}"))["number"] for i in range(4)]
-    # New cards land at the top of Maybe?
-    assert lane(await snapshot(ada, board["id"]), None) == list(reversed(numbers))
+    numbers = {}
+    for title in ("A", "B", "C"):
+        numbers[title] = (await make_card(ada, board["id"], title))["number"]
+    snap = await snapshot(ada, board["id"])
+    maybe = [n for n in lane(snap, None) if n in numbers.values()]
+    assert maybe == [numbers["C"], numbers["B"], numbers["A"]]  # newest on top
 
-    cards = {c["number"]: c for c in (await snapshot(ada, board["id"]))["cards"]}
-    for n in numbers:  # each to the bottom of the column, in order
-        current = lane(await snapshot(ada, board["id"]), doing)
-        above = cards[current[-1]]["id"] if current else None
-        await ada.post(f"/cards/{n}/triage", {"column_id": doing, "above": above})
-    assert lane(await snapshot(ada, board["id"]), doing) == numbers
+    # Touching a card brings it up.
+    await ada.post(f"/cards/{numbers['A']}/steps", {"body": "Look into it"})
+    assert lane(await snapshot(ada, board["id"]), None)[0] == numbers["A"]
 
-    # Drag the last card between the first two.
-    await ada.post(
-        f"/cards/{numbers[3]}/triage",
-        {"column_id": doing, "above": cards[numbers[0]]["id"], "below": cards[numbers[1]]["id"]},
-    )
-    assert lane(await snapshot(ada, board["id"]), doing) == [
-        numbers[0],
-        numbers[3],
-        numbers[1],
-        numbers[2],
-    ]
+    # A card dropped on a lane lands at its top.
+    await ada.post(f"/cards/{numbers['B']}/triage", {"column_id": doing})
+    await ada.post(f"/cards/{numbers['C']}/triage", {"column_id": doing})
+    assert lane(await snapshot(ada, board["id"]), doing) == [numbers["C"], numbers["B"]]
 
-    # Golden sorts to the top and survives moves and state changes.
-    await ada.put(f"/cards/{numbers[2]}/golden")
-    assert lane(await snapshot(ada, board["id"]), doing)[0] == numbers[2]
-    await ada.post(f"/cards/{numbers[2]}/postpone")
-    card = (await ada.post(f"/cards/{numbers[2]}/resume"))["card"]
+    # Golden cards stay first however quiet they are.
+    await ada.put(f"/cards/{numbers['B']}/golden")
+    await age(app, numbers["B"], 10)
+    await ada.post(f"/cards/{numbers['C']}/steps", {"body": "More"})
+    assert lane(await snapshot(ada, board["id"]), doing) == [numbers["B"], numbers["C"]]
+    await ada.post(f"/cards/{numbers['B']}/postpone")
+    card = (await ada.post(f"/cards/{numbers['B']}/resume"))["card"]
     assert card["golden"] is True
-    card = (await ada.delete(f"/cards/{numbers[2]}/golden"))["card"]
+    card = (await ada.delete(f"/cards/{numbers['B']}/golden"))["card"]
     assert card["golden"] is False
+
+
+async def test_cards_move_between_any_lanes(ada: Api) -> None:
+    """Every lane accepts a card from every other lane, recording the steps on the way."""
+    board = await make_board(ada)
+    doing = (await snapshot(ada, board["id"]))["columns"][0]["id"]
+    n = (await make_card(ada, board["id"]))["number"]
+
+    async def actions() -> list[str]:
+        return [e["action"] for e in reversed((await ada.get(f"/cards/{n}"))["events"])]
+
+    await ada.post(f"/cards/{n}/triage", {"column_id": doing})
+    await ada.post(f"/cards/{n}/close")  # column -> Done
+    card = (await ada.post(f"/cards/{n}/untriage"))["card"]  # Done -> Maybe?
+    assert card["state"] == "active" and card["column_id"] is None
+    await ada.post(f"/cards/{n}/close")  # Maybe? -> Done
+    card = (await ada.post(f"/cards/{n}/postpone"))["card"]  # Done -> Not Now
+    assert card["state"] == "not_now" and card["column_id"] is None
+    card = (await ada.post(f"/cards/{n}/untriage"))["card"]  # Not Now -> Maybe?
+    assert card["state"] == "active"
+    assert await actions() == [
+        "published",
+        "triaged",
+        "closed",
+        "reopened",
+        "sent_back_to_triage",
+        "closed",
+        "postponed",
+        "resumed",
+    ]
 
 
 async def test_drafts_are_private_until_published(ada: Api, bob: Api) -> None:

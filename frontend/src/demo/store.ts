@@ -34,7 +34,6 @@ export type Card = {
   state_changed_by: string | null;
   auto_postponed: boolean;
   golden_at: string | null;
-  position: string;
   last_active_at: string;
   created_by: string;
   created_at: string;
@@ -202,10 +201,6 @@ export class Store {
 
   // Ordering ----------------------------------------------------------------------------
 
-  private lane(boardId: string, columnId: string | null) {
-    return this.cards.filter((c) => c.board_id === boardId && c.status === "published" && c.state === "active" && c.column_id === columnId);
-  }
-
   /** Mirrors domain/positions.place(): always between two adjacent items. */
   place<T extends { position: string }>(items: T[], self: T | null, key: (t: T) => string, above?: string | null, below?: string | null, top = true) {
     const others = items.filter((i) => i !== self).sort((a, b) => (a.position < b.position ? -1 : 1));
@@ -214,10 +209,6 @@ export class Store {
     const hi = below ? others.find((i) => key(i) === below)?.position : undefined;
     if (hi !== undefined) return keyBetween([...others].reverse().find((i) => i.position < hi)?.position ?? null, hi);
     return top ? keyBetween(null, others[0]?.position ?? null) : keyBetween(others.at(-1)?.position ?? null, null);
-  }
-
-  private placeCard(card: Card, columnId: string | null, above?: string | null, below?: string | null) {
-    card.position = this.place(this.lane(card.board_id, columnId), card, (c) => c.id, above, below);
   }
 
   // Boards and columns --------------------------------------------------------------------
@@ -259,7 +250,6 @@ export class Store {
       state_changed_by: null,
       auto_postponed: false,
       golden_at: null,
-      position: "V",
       last_active_at: now,
       created_by: this.actor,
       created_at: now,
@@ -275,7 +265,6 @@ export class Store {
   publish(card: Card) {
     card.status = "published";
     card.column_id = null;
-    this.placeCard(card, null);
     this.record("published", card.board_id, card, {}, { mentions: mentions(card.description) });
   }
 
@@ -290,10 +279,15 @@ export class Store {
     if (card.status !== "published") throw new Problem(409, "Conflict", "Publish this draft first");
   }
 
-  triage(card: Card, columnId: string, above?: string | null, below?: string | null) {
+  // Cards are never placed by hand: a lane lists golden cards first, then the most
+  // recently active, and every move touches the card, so it lands on top.
+
+  triage(card: Card, columnId: string) {
     this.requirePublished(card);
     const column = this.columns.find((c) => c.id === columnId && c.board_id === card.board_id);
     if (!column) throw new Problem(404, "Not found", "No such column on this board");
+    if (card.state === "active" && card.column_id === column.id)
+      throw new Problem(409, "Conflict", "The card is already in this column", { current: card.state });
     let previous = card.column_id;
     if (card.state === "not_now") {
       this.setState(card, "active");
@@ -304,33 +298,34 @@ export class Store {
       this.setState(card, "active");
       this.record("reopened", card.board_id, card);
     }
-    this.placeCard(card, column.id, above, below);
     card.column_id = column.id;
     if (previous === null) this.record("triaged", card.board_id, card, { column_id: column.id, column: column.name });
     else if (previous !== column.id) {
       const old = this.columns.find((c) => c.id === previous);
       this.record("moved", card.board_id, card, { from_column: old?.name ?? null, column: column.name, column_id: column.id });
-    } else this.bump(card.board_id);
+    }
   }
 
-  untriage(card: Card, above?: string | null, below?: string | null) {
+  /** To Maybe?, from a column, Not Now or Done. */
+  untriage(card: Card) {
     this.requirePublished(card);
-    if (card.state !== "active" || !card.column_id) throw new Problem(409, "Conflict", "Only cards in a column can go back to Maybe?", { current: card.state });
+    if (card.state === "not_now") return this.resume(card);
+    if (card.state === "active" && !card.column_id)
+      throw new Problem(409, "Conflict", "The card is already in Maybe?", { current: card.state });
+    if (card.state === "done") {
+      this.setState(card, "active");
+      this.record("reopened", card.board_id, card);
+      if (!card.column_id) return;
+    }
     const old = this.columns.find((c) => c.id === card.column_id);
-    this.placeCard(card, null, above, below);
     card.column_id = null;
     this.record("sent_back_to_triage", card.board_id, card, { from_column: old?.name ?? null });
   }
 
-  reorder(card: Card, above?: string | null, below?: string | null) {
-    if (card.state !== "active" || card.column_id) throw new Problem(409, "Conflict", "Only cards in Maybe? can be reordered there");
-    this.placeCard(card, null, above, below);
-    this.bump(card.board_id);
-  }
-
+  /** To Not Now, from Maybe?, a column or Done. */
   postpone(card: Card, auto = false) {
     this.requirePublished(card);
-    if (card.state !== "active") throw new Problem(409, "Conflict", "Only open cards can be postponed", { current: card.state });
+    if (card.state === "not_now") throw new Problem(409, "Conflict", "This card is already in Not Now", { current: card.state });
     this.setState(card, "not_now", auto);
     card.column_id = null;
     this.record(auto ? "auto_postponed" : "postponed", card.board_id, card);
@@ -341,7 +336,6 @@ export class Store {
     if (card.state !== "not_now") throw new Problem(409, "Conflict", "Only cards in Not Now can be resumed", { current: card.state });
     this.setState(card, "active");
     card.column_id = null;
-    this.placeCard(card, null);
     this.record("resumed", card.board_id, card);
   }
 
@@ -357,7 +351,6 @@ export class Store {
     if (card.state !== "done") throw new Problem(409, "Conflict", "Only done cards can be reopened", { current: card.state });
     this.setState(card, "active");
     if (card.column_id && !this.columns.some((c) => c.id === card.column_id)) card.column_id = null;
-    this.placeCard(card, card.column_id);
     this.record("reopened", card.board_id, card);
   }
 
@@ -401,7 +394,6 @@ export class Store {
       this.bump(source.id);
       card.board_id = target.id;
       card.column_id = null;
-      if (card.status === "published" && card.state === "active") this.placeCard(card, null);
       if (card.status === "published") this.record("board_changed", target.id, card, { from_board: source.name });
       changed = true;
     }
@@ -505,7 +497,6 @@ export class Store {
       column_id: c.column_id,
       status: c.status,
       state: c.state,
-      position: c.position,
       golden: !!c.golden_at,
       auto_postponed: c.auto_postponed,
       tags: this.tags.filter((t) => this.cardTags.get(c.id)?.has(t.id)).sort((a, b) => a.name.localeCompare(b.name)),

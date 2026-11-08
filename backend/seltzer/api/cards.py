@@ -112,31 +112,14 @@ async def publish(number: int, ctx: Ctx = Depends(get_ctx)) -> CardResponse:
 
 @router.post("/cards/{number}/triage")
 async def triage(number: int, body: TriageIn, ctx: Ctx = Depends(get_ctx)) -> CardResponse:
-    return await _act(
-        ctx,
-        number,
-        lambda c: lifecycle.triage(ctx, c, body.column_id, above=body.above, below=body.below),
-    )
+    """Move a card into a column; it lands at the top. Works from Not Now and Done."""
+    return await _act(ctx, number, lambda c: lifecycle.triage(ctx, c, body.column_id))
 
 
 @router.post("/cards/{number}/untriage")
-async def untriage(
-    number: int, body: PlaceIn | None = None, ctx: Ctx = Depends(get_ctx)
-) -> CardResponse:
-    place = body or PlaceIn()
-    return await _act(
-        ctx, number, lambda c: lifecycle.untriage(ctx, c, above=place.above, below=place.below)
-    )
-
-
-@router.post("/cards/{number}/reorder")
-async def reorder_in_maybe(number: int, body: PlaceIn, ctx: Ctx = Depends(get_ctx)) -> CardResponse:
-    """Reorder a card within Maybe?. Use /triage to reorder within a column."""
-    return await _act(
-        ctx,
-        number,
-        lambda c: lifecycle.reorder_in_maybe(ctx, c, above=body.above, below=body.below),
-    )
+async def untriage(number: int, ctx: Ctx = Depends(get_ctx)) -> CardResponse:
+    """Send a card to Maybe?, from a column, Not Now or Done."""
+    return await _act(ctx, number, lambda c: lifecycle.untriage(ctx, c))
 
 
 @router.post("/cards/{number}/postpone")

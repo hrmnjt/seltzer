@@ -8,17 +8,7 @@ from typing import Any
 from sqlalchemy import func, select, text
 
 from seltzer.jobs.sweep import SWEEP_LOCK, sweep
-from tests.conftest import Api, make_board, make_card
-
-
-async def age(app: Any, number: int, days: float) -> None:
-    async with app.state.db.engine.begin() as conn:
-        await conn.execute(
-            text(
-                "update cards set last_active_at = now() - make_interval(secs => :s) where number = :n"
-            ),
-            {"s": days * 86400, "n": number},
-        )
+from tests.conftest import Api, age, make_board, make_card
 
 
 async def test_sweep_postpones_idle_cards(app: Any, ada: Api, bob: Api) -> None:

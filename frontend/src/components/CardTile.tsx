@@ -1,5 +1,3 @@
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import type { CardTile as Tile, UsersMap } from "../api/client";
 import { colorVar } from "../api/client";
 import { ACTION_LABELS } from "../lib/board";
@@ -96,25 +94,6 @@ export function CardTileView({ tile, users, onOpen, dragging, overlay, accent }:
           </div>
         )}
       </button>
-    </div>
-  );
-}
-
-export function SortableTile(props: Omit<Props, "dragging" | "overlay"> & { lane: string; disabled?: boolean }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: props.tile.id,
-    data: { lane: props.lane },
-    disabled: props.disabled,
-  });
-  return (
-    <div
-      ref={setNodeRef}
-      style={{ transform: CSS.Translate.toString(transform), transition }}
-      {...attributes}
-      {...listeners}
-      className="touch-none"
-    >
-      <CardTileView {...props} dragging={isDragging} />
     </div>
   );
 }

@@ -171,4 +171,14 @@ def doc(text_: str, mention: tuple[str, str] | None = None) -> dict[str, Any]:
     return {"type": "doc", "content": [{"type": "paragraph", "content": content}]}
 
 
+async def age(app: Any, number: int, days: float) -> None:
+    async with app.state.db.engine.begin() as conn:
+        await conn.execute(
+            text(
+                "update cards set last_active_at = now() - make_interval(secs => :s) where number = :n"
+            ),
+            {"s": days * 86400, "n": number},
+        )
+
+
 ROOT = Path(__file__).resolve().parent

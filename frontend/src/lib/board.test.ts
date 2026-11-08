@@ -27,16 +27,16 @@ describe("keyBetween", () => {
 
 describe("lanesOf", () => {
   const tile = (over: Partial<CardTile>): CardTile =>
-    ({ id: "x", golden: false, position: "V", column_id: null, tags: [], assignee_ids: [], closing_soon: false, ...over }) as CardTile;
+    ({ id: "x", golden: false, last_active_at: "2026-11-01T00:00:00Z", column_id: null, tags: [], assignee_ids: [], closing_soon: false, ...over }) as CardTile;
 
-  it("puts golden cards first, then orders by position", () => {
+  it("puts golden cards first, then the most recently active", () => {
     const snap = {
       columns: [{ id: "c1", name: "Doing", color: "blue", position: "V" }],
       cards: [
-        tile({ id: "a", position: "a" }),
-        tile({ id: "b", position: "b", golden: true }),
-        tile({ id: "c", position: "0V" }),
-        tile({ id: "d", position: "V", column_id: "c1" }),
+        tile({ id: "a", last_active_at: "2026-11-01T09:00:00Z" }),
+        tile({ id: "b", last_active_at: "2026-10-01T09:00:00Z", golden: true }),
+        tile({ id: "c", last_active_at: "2026-11-03T09:00:00Z" }),
+        tile({ id: "d", column_id: "c1" }),
       ],
     } as unknown as BoardSnapshot;
     const lanes = lanesOf(snap);
