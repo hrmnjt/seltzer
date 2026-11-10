@@ -70,7 +70,9 @@ jobs:
 
   deploy-dev:
     needs: [backend, frontend]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Skipped until the repository has a DATABRICKS_HOST variable (Settings > Secrets and
+    # variables > Actions), so main stays green before a workspace is set up.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DATABRICKS_HOST != ''
     runs-on: ubuntu-latest
     environment: dev
     env:

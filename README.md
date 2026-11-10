@@ -11,27 +11,49 @@ triaged into coloured columns, and close into **Done**; anything nobody touches 
 
 The spec, decisions and open spikes are in [docs/spec.md](docs/spec.md).
 
-## Run it locally
+## Run it on a Mac
 
-You need Docker (or any Postgres 16), [uv](https://docs.astral.sh/uv/) and Node 22.
+**Just look at the UI.** No database needed: this runs the real interface on sample data in
+your browser, with changes reset on reload.
 
 ```sh
-docker compose up -d                       # Postgres with seltzer and seltzer_test databases
-
-cd frontend && npm ci && npm run build && cd ..
-
-cd backend
-cp .env.example .env                       # pick the email you want to be
-uv sync
-uv run python -m seltzer.serve             # http://localhost:8000
-uv run python scripts/seed.py              # optional: a demo board (in another shell)
+brew install node
+cd frontend && npm ci && npm run dev:demo  # opens http://localhost:5173/demo.html
 ```
 
-For UI work, run `npm run dev` in `frontend/` as well and open http://localhost:5173.
+**Run the whole app.** You need [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+(or OrbStack) for Postgres, plus `brew install uv node`. uv fetches Python 3.11+ itself.
 
-Locally there is no Databricks proxy, so `SELTZER_DEV_USER_EMAIL` says who you are. Emails in
-`SELTZER_DEV_OWNER_EMAILS` count as members of the owner group. Both are ignored outside
-`SELTZER_ENV=local`.
+```sh
+docker compose up -d                       # Postgres 16 with seltzer and seltzer_test databases
+
+cd frontend && npm ci && npm run build && cd ..   # the UI, built into the backend
+
+cd backend
+cp .env.example .env                       # set SELTZER_DEV_USER_EMAIL to your email
+uv sync
+uv run python -m seltzer.serve             # http://localhost:8000 (runs migrations on start)
+```
+
+In a second terminal, from `backend/`:
+
+```sh
+uv run python scripts/seed.py              # a demo board with four people
+uv run seltzer-sweep                       # run the hourly auto-postpone job once
+```
+
+For UI work, also run `npm run dev` in `frontend/` and open http://localhost:5173. It reloads on
+save and forwards `/api` to port 8000.
+
+Notes:
+
+- Locally there is no Databricks proxy, so `SELTZER_DEV_USER_EMAIL` says who you are, and emails
+  in `SELTZER_DEV_OWNER_EMAILS` count as members of the owner group. To act as someone else,
+  change the email and restart, or send an `X-Seltzer-Dev-User` header. All of this is ignored
+  unless `SELTZER_ENV=local`.
+- Port 5432 taken by Postgres.app or Homebrew Postgres? Stop it, or change the port in
+  `docker-compose.yml` and set `PGPORT` in `.env`.
+- Attachments land in `backend/.seltzer-files/` instead of a Unity Catalog volume.
 
 ## Test
 
@@ -56,9 +78,10 @@ a `seltzer-users` group for the people who should get in. Bundle variables, defa
 spikes still to confirm in a real workspace are listed in `databricks.yml` and
 [docs/spec.md](docs/spec.md#open-questions-and-spikes).
 
-CI (`.github/workflows/ci.yml`) deploys to `dev` on every merge to `main`, using
-`DATABRICKS_HOST`, `DATABRICKS_CLIENT_ID` and `DATABRICKS_CLIENT_SECRET` from the `dev`
-environment. Prod deploys are manual.
+CI (`.github/workflows/ci.yml`) deploys to `dev` on every merge to `main` once the repository has
+a `DATABRICKS_HOST` variable; until then that step is skipped. It authenticates with
+`DATABRICKS_CLIENT_ID` and `DATABRICKS_CLIENT_SECRET` from the `dev` environment. Prod deploys
+are manual.
 
 ## Credits
 
