@@ -1,0 +1,193 @@
+@import "tailwindcss";
+
+/* Seltzer design tokens. One token set drives light and dark themes. */
+:root {
+  --bg: #f6f7f7;
+  --surface: #ffffff;
+  --surface-2: #eef1f1;
+  --surface-3: #e3e8e8;
+  --ink: #142021;
+  --ink-2: #4b5b5c;
+  --ink-3: #7c8a8b;
+  --line: #d9e0e0;
+  --line-strong: #c3cdcd;
+  --accent: #0f766e;
+  --accent-ink: #ffffff;
+  --accent-soft: #ccfbf1;
+  --gold: #b7791f;
+  --gold-soft: #fdf3d8;
+  --danger: #b42318;
+  --danger-soft: #fde8e7;
+  --focus: #14b8a6;
+  --shadow: 0 1px 2px rgb(16 24 24 / 0.06), 0 1px 1px rgb(16 24 24 / 0.04);
+  --shadow-lift: 0 10px 24px -8px rgb(16 24 24 / 0.25);
+
+  --col-gray: #8a9696;
+  --col-red: #dc4c3f;
+  --col-orange: #e47d2e;
+  --col-amber: #d4a017;
+  --col-lime: #7cb32e;
+  --col-green: #2f9e5b;
+  --col-teal: #14998a;
+  --col-cyan: #1a9bbf;
+  --col-blue: #3b72d9;
+  --col-indigo: #5a5fd6;
+  --col-violet: #8a55d4;
+  --col-pink: #d24f93;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1415;
+    --surface: #161e1f;
+    --surface-2: #1d2728;
+    --surface-3: #263233;
+    --ink: #e6eeee;
+    --ink-2: #a8b6b7;
+    --ink-3: #758586;
+    --line: #2a3536;
+    --line-strong: #3a4849;
+    --accent: #2dd4bf;
+    --accent-ink: #042f2b;
+    --accent-soft: #123b37;
+    --gold: #e9b949;
+    --gold-soft: #3a2f12;
+    --danger: #f97066;
+    --danger-soft: #3d1a17;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-lift: 0 12px 28px -8px rgb(0 0 0 / 0.6);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0e1415;
+  --surface: #161e1f;
+  --surface-2: #1d2728;
+  --surface-3: #263233;
+  --ink: #e6eeee;
+  --ink-2: #a8b6b7;
+  --ink-3: #758586;
+  --line: #2a3536;
+  --line-strong: #3a4849;
+  --accent: #2dd4bf;
+  --accent-ink: #042f2b;
+  --accent-soft: #123b37;
+  --gold: #e9b949;
+  --gold-soft: #3a2f12;
+  --danger: #f97066;
+  --danger-soft: #3d1a17;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-lift: 0 12px 28px -8px rgb(0 0 0 / 0.6);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-gold: var(--gold);
+  --color-gold-soft: var(--gold-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --shadow-card: var(--shadow);
+  --shadow-lift: var(--shadow-lift);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Rich text inside cards and comments */
+.prose-seltzer {
+  line-height: 1.55;
+}
+.prose-seltzer p {
+  margin: 0.35em 0;
+}
+.prose-seltzer h1,
+.prose-seltzer h2,
+.prose-seltzer h3 {
+  font-weight: 650;
+  margin: 0.8em 0 0.3em;
+}
+.prose-seltzer h2 {
+  font-size: 1.1em;
+}
+.prose-seltzer ul,
+.prose-seltzer ol {
+  padding-left: 1.3em;
+  margin: 0.35em 0;
+}
+.prose-seltzer ul {
+  list-style: disc;
+}
+.prose-seltzer ol {
+  list-style: decimal;
+}
+.prose-seltzer blockquote {
+  border-left: 3px solid var(--line-strong);
+  padding-left: 0.75em;
+  color: var(--ink-2);
+}
+.prose-seltzer code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--surface-2);
+  padding: 0.05em 0.3em;
+  border-radius: 4px;
+}
+.prose-seltzer pre {
+  background: var(--surface-2);
+  padding: 0.6em 0.8em;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+.prose-seltzer a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.prose-seltzer .mention {
+  color: var(--accent);
+  font-weight: 600;
+}
+.prose-seltzer .ProseMirror {
+  outline: none;
+  min-height: 2.5em;
+}
+.prose-seltzer .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--ink-3);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}

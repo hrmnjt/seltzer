@@ -1,0 +1,61 @@
+[project]
+name = "seltzer"
+version = "0.1.0"
+description = "A kanban tracker for issues and ideas, running on Databricks Apps and Lakebase."
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "sqlalchemy[asyncio]>=2.0.30",
+    "psycopg[binary]>=3.2",
+    "alembic>=1.13",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "python-multipart>=0.0.9",
+    "databricks-sdk>=0.60",
+]
+
+[project.scripts]
+seltzer-sweep = "seltzer.jobs.sweep:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.27",
+    "ruff>=0.6",
+    "mypy>=1.11",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["seltzer"]
+# The job wheel needs only the Python package; the app ships the built UI separately.
+exclude = ["seltzer/static"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "ASYNC", "SIM", "RUF"]
+ignore = ["B008", "RUF012"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.11"
+plugins = ["pydantic.mypy"]
+ignore_missing_imports = true
+check_untyped_defs = true
+
+[tool.ruff.lint.per-file-ignores]
+"migrations/versions/*" = ["E501"]
+"tests/*" = ["E501"]

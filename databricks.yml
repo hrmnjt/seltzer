@@ -1,0 +1,153 @@
+# One bundle deploys Seltzer: the app, its Lakebase Autoscaling project, the
+# attachments volume and the hourly sweep job.
+#
+#   databricks bundle validate -t dev
+#   databricks bundle deploy -t dev     # CI does this on merge to main
+#   databricks bundle run seltzer -t dev
+#
+# Build the UI first (`npm --prefix frontend run build`); it lands in
+# backend/seltzer/static, which the sync.include below ships with the app.
+
+bundle:
+  name: seltzer
+
+variables:
+  catalog:
+    description: Unity Catalog catalog that holds the attachments volume
+    default: main
+  schema:
+    description: Schema for the attachments volume (must exist)
+    default: seltzer
+  users_group:
+    description: Workspace group granted CAN USE on the app; its members are Seltzer users
+    default: seltzer-users
+  owner_group:
+    description: Workspace group whose members become Seltzer owners on sign-in
+    default: admins
+  lakebase_project:
+    description: Lakebase Autoscaling project id; each target gets its own project
+    default: seltzer
+  lakebase_branch:
+    description: Branch the app connects to (the project's default branch unless set)
+    default: production
+  lakebase_endpoint:
+    description: Read-write compute endpoint id on that branch
+    default: primary
+  lakebase_database:
+    description: Postgres database resource id on that branch (verify in the Lakebase spike)
+    default: databricks-postgres
+  pg_database:
+    description: Postgres database name the sweep job connects to
+    default: databricks_postgres
+  sweep_run_as:
+    description: >-
+      Application id of the service principal the sweep runs as. Set it to the app's
+      service principal after the first deploy so the job uses the app's Postgres role.
+    default: ""
+
+artifacts:
+  seltzer_wheel:
+    type: whl
+    path: ./backend
+    build: uv build --wheel
+
+sync:
+  include:
+    - backend/seltzer/static/**
+  exclude:
+    - frontend/node_modules/**
+    - backend/.venv/**
+    - backend/tests/**
+
+resources:
+  postgres_projects:
+    seltzer:
+      project_id: ${var.lakebase_project}-${bundle.target}
+      display_name: Seltzer (${bundle.target})
+      pg_version: 17
+
+  volumes:
+    attachments:
+      catalog_name: ${var.catalog}
+      schema_name: ${var.schema}
+      name: attachments_${bundle.target}
+      volume_type: MANAGED
+      comment: Card attachments for Seltzer. Only the app reads and writes here.
+
+  apps:
+    seltzer:
+      name: seltzer-${bundle.target}
+      description: Kanban for issues and ideas
+      source_code_path: ./backend
+      compute_size: MEDIUM
+      config:
+        command: ["python", "-m", "seltzer.serve"]
+        env:
+          - name: SELTZER_ENV
+            value: ${bundle.target}
+          - name: SELTZER_OWNER_GROUP
+            value: ${var.owner_group}
+          - name: SELTZER_VOLUME
+            value_from: attachments
+          - name: ENDPOINT_NAME
+            value: projects/${var.lakebase_project}-${bundle.target}/branches/${var.lakebase_branch}/endpoints/${var.lakebase_endpoint}
+          - name: SELTZER_DB_GRANT_ROLES
+            value: ${var.sweep_run_as}
+      resources:
+        - name: database
+          description: Seltzer's Postgres database
+          postgres:
+            branch: projects/${var.lakebase_project}-${bundle.target}/branches/${var.lakebase_branch}
+            database: projects/${var.lakebase_project}-${bundle.target}/branches/${var.lakebase_branch}/databases/${var.lakebase_database}
+            permission: CAN_CONNECT_AND_CREATE
+        - name: attachments
+          description: Card attachments
+          uc_securable:
+            securable_type: VOLUME
+            securable_full_name: ${var.catalog}.${var.schema}.attachments_${bundle.target}
+            permission: WRITE_VOLUME
+      permissions:
+        - level: CAN_USE
+          group_name: ${var.users_group}
+
+  jobs:
+    sweep:
+      name: seltzer-sweep-${bundle.target}
+      description: Hourly auto-postpone of idle cards
+      schedule:
+        quartz_cron_expression: "0 7 * * * ?"
+        timezone_id: UTC
+      max_concurrent_runs: 1
+      tasks:
+        - task_key: sweep
+          environment_key: seltzer
+          python_wheel_task:
+            package_name: seltzer
+            entry_point: seltzer-sweep
+            parameters:
+              - --endpoint=projects/${var.lakebase_project}-${bundle.target}/branches/${var.lakebase_branch}/endpoints/${var.lakebase_endpoint}
+              - --database=${var.pg_database}
+      environments:
+        - environment_key: seltzer
+          spec:
+            environment_version: "3"
+            dependencies:
+              - ./backend/dist/*.whl
+
+targets:
+  dev:
+    mode: development
+    default: true
+
+  prod:
+    mode: production
+    # Once the app exists, run the sweep as the app's service principal so it shares the
+    # app's Postgres role (Job identity spike):
+    # run_as:
+    #   service_principal_name: <app service principal application id>
+    resources:
+      postgres_projects:
+        seltzer:
+          project_id: ${var.lakebase_project}-${bundle.target}
+          lifecycle:
+            prevent_destroy: true
