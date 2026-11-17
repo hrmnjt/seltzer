@@ -424,6 +424,14 @@ targets.
   `requirements.txt` and the OpenAPI types, frontend type-check, tests and build, then
   `databricks bundle deploy -t dev` on merge to `main`. Prod deploys are manual.
 
+## Mods (draft)
+
+Seltzer is heading towards a small core that teams extend with mods, in the spirit of the Pi coding
+harness: the core keeps the lifecycle, lane order, the event log and permissions, and everything
+else, including Seltzer's own defaults such as auto-postpone, is built on eight hook points
+(`before`, `after`, `schedule`, `events`, `fields`, `commands`, `routes`, `slots`). The proposal
+and its open decisions are in [docs/mods.md](mods.md).
+
 ## Open questions and spikes
 
 The product questions are settled (see [Decisions](#decisions)) except out-of-app notifications.
