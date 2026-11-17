@@ -5,8 +5,9 @@
 Decided so far:
 
 - Context comes from **Outlook email and Teams** first.
-- Until decided otherwise, the agent only **drafts and proposes** when acting on email or Teams
-  content. A person confirms every change to a board.
+- The agent **creates draft cards and helps with triage**. It never changes a published card or a
+  board itself. Everything beyond a draft is a suggestion that a person applies with one tap,
+  whether it came from a conversation, an email or a Teams message.
 
 Seltzer gets one assistant that anyone on a team can talk to: in Seltzer, in Teams, or by email. It
 plans with you: it turns what arrives in your inbox and chats into draft cards, triages Maybe?,
@@ -32,7 +33,7 @@ The first four follow Linear's [Agent Interaction Guidelines](https://linear.app
 5. **It sees only what the asking person can see.** It works through each person's own access: their
    boards, their mailbox, their chats. It never uses the app's wider access to read anything.
 6. **Outside content is data, never instructions.** An email can contain text aimed at the agent.
-   Anything that arrives from email or Teams can only produce drafts and proposals.
+   Because the agent can only draft and suggest, such text can never change a board by itself.
 
 ## How it fits together
 
@@ -63,21 +64,35 @@ workspace's model serving.
 ## What the agent can do
 
 The agent's tools are Seltzer's own domain functions, generated from the same Pydantic schemas as
-the REST API. The UI, the API, a future MCP server and the agent all share one surface. How much it
-may do on its own depends on who started the work.
+the REST API. The UI, the API, a future MCP server and the agent all share one surface. The agent
+reads, drafts and suggests. People apply.
 
-| Tool | Started by a person in conversation | Started by email or Teams content |
-| --- | --- | --- |
-| Read: search cards, read a card, board summary, timeline, who is working on what | Yes, within that person's access | Yes, within the mailbox owner's access |
-| Create a draft card (private to the person) | Yes | Yes. This is the main output of ingestion |
-| Link a signal to a card, suggest an owner, flag a likely duplicate | Yes | Yes, as suggestions on the draft |
-| Comment, add steps, add tags | Yes, shown in the conversation and undoable | Proposal only |
-| Move, postpone, close, reopen, assign | Yes, if the person could, with a one-tap confirm | Proposal only |
-| Change a team's columns, fields, rules or views | Proposal only, accepted by a board admin | Never |
+| The agent does it | The agent suggests, a person applies |
+| --- | --- |
+| Read within the asking person's access: search cards, read a card, board summary, timeline, who is working on what | Place a card in a column, or send it back to Maybe? |
+| Answer questions and plan from that ("what should I pick up today?", "what moved this week?") | Assign an owner, add tags |
+| Create draft cards, private to the person, from a conversation, an email or a Teams message | Postpone a card that looks stale, or close one that looks finished |
+| Link a source message to a draft or a card | Merge a likely duplicate |
+| | Change a team's columns, fields, rules or views (a change set, accepted by a board admin) |
 
-Every write goes through `activity.record()` with the agent as the actor. The agent does not float
-cards to the top unless the change is real work on the card. This uses the "mod changes don't touch
-cards" rule from [docs/mods.md](mods.md).
+Drafts are recorded with the agent as the actor and stay invisible to everyone else until their
+owner publishes them. A suggestion that is applied is recorded with the person who applied it as
+the actor, so accountability stays with people.
+
+### Help with triage
+
+Triage is where the agent earns its place. For every card in Maybe?, drafts and published cards
+alike, it prepares suggestions, each with a one-line reason:
+
+- the column to place it in
+- an owner
+- tags
+- likely duplicates or related cards
+- "this looks stale, move to Not Now?"
+
+Suggestions show as a small marker on the card tile and in full in the card sheet. Each one can be
+applied or dismissed with one tap. A **triage pass** in the side panel walks through Maybe? one card
+at a time: apply, change, or skip. Dismissed suggestions teach nothing yet; they simply go away.
 
 ## Context from email and Teams
 
@@ -166,16 +181,21 @@ nothing it adds can break the board.
 | `agent_messages` | The conversation and tool calls of a session, for the panel and for audit |
 | `microsoft_connections` | Per-person Graph connection: scopes, encrypted refresh token, delta links |
 | `signals`, `card_signals` | Ingested messages, and their links to cards |
+| `suggestions` | One row per suggestion: card, kind (place, assign, tag, duplicate, postpone, close), the change, a reason, and its status (open, applied or dismissed) |
 | `change_sets` | Proposed workflow changes: contents, status, who accepted, events produced |
 
 ## Milestones
 
 1. **M1: the agent in Seltzer.**
-   - **Scope:** side panel, agent identity and delegation, visible sessions, and tools over today's
-     domain functions. The agent can answer questions from the event log, create and triage cards,
-     and move them with a confirm. No outside context yet.
-   - **Done when** a person can say "plan my week from my open cards" and "move the login bug to
-     Review", and get it.
+   - **Scope:**
+     - side panel, agent identity and visible sessions
+     - read tools over today's domain functions
+     - draft cards from a conversation
+     - triage suggestions with one-tap apply, and the triage pass
+     - no outside context yet
+   - **Done when** a person can ask "what should I pick up today?", get a draft card from "the
+     export is timing out for Acme, write it up", and clear Maybe? by applying or dismissing
+     suggestions.
 2. **M2: email and Teams.**
    - **Scope:** Microsoft connection, the ingest job, signals, screening into private draft cards,
      the team mailbox, and the Teams bot behind its relay.
@@ -205,8 +225,6 @@ nothing it adds can break the board.
 
 ## Open decisions
 
-1. **What may the agent do without asking?** Assumed above: from conversation, what the person
-   could do, with a confirm for moves; from email and Teams, drafts and proposals only.
-2. **Team mailbox or personal mailboxes first?** The team mailbox needs one consent and is easier
+1. **Team mailbox or personal mailboxes first?** The team mailbox needs one consent and is easier
    to govern. Personal mailboxes catch more but need every person to connect.
-3. **Retention of unlinked signals:** 30 days is proposed.
+2. **Retention of unlinked signals:** 30 days is proposed.
