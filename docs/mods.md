@@ -154,17 +154,24 @@ and where its code runs. A Seltzer mod acts on a shared board, so the trust mode
 `before` is limited to rules and reviewed code, because it runs inside every move and must be fast
 and correct.
 
-## How this differs from Jira
+## How this compares with Jira
 
-Jira can be customised as far as this and further, but in a different way.
+None of these hook points is new. Jira has the same kinds through workflow conditions,
+validators and post functions, custom fields, Automation, and Forge apps (event triggers, issue
+panels, custom fields, workflow rules). Rovo can build Automation flows from a plain-language
+description. Trello Power-Ups, Kanboard, Obsidian and Datasette have most of them too. What
+Seltzer does differently is a set of choices, not inventions:
 
 | | Jira | Seltzer with mods |
 | --- | --- | --- |
-| What you change | Configuration of a large product: statuses, transitions, screens, field and permission schemes | A small fixed core, extended through eight hook points |
+| Size of the contract | A large platform: many schemes, Forge modules and REST APIs | One fixed lifecycle and a few hook points, small enough for an agent to hold whole and test against |
 | The lifecycle | Yours to redefine per project | Fixed: Maybe?, columns, Not Now, Done |
-| Seltzer's own defaults | Built into the product | Mods on the same hooks, which a board can switch off |
-| Who extends it | Admins, and marketplace vendors through Forge | Anyone on the team, usually by asking an agent |
-| Cost of a small change | A configuration project, often an admin ticket | A rule or a one-file mod, tested against a real board |
+| Seltzer's own defaults | Built into the product, not on Forge | Mods on the same hooks, which a board can switch off |
+| Code extensions | Forge apps, built and deployed by developers | One-file mods in the repo, written with an agent against generated types and tests |
+
+The mod system is not a reason for Seltzer to exist; Fizzy's way of working, running inside
+Databricks, and owning the card history are. So build only the hooks the next features need,
+starting with `after`, `schedule` and `fields`, and add the rest when a team asks.
 
 ## Proving the hooks
 
