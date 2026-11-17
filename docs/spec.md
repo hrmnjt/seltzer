@@ -43,6 +43,8 @@ charts, time tracking, imports from Trello or Jira, and public boards.
 | Rich-text format | **Tiptap JSON**, validated on the server against a node and mark allowlist; plain text is derived for search. |
 | Attachment size and previews | **25 MB** default (`SELTZER_MAX_UPLOAD_MB`), **no thumbnails** in v1. Images and PDFs open inline in a sandbox; everything else downloads. |
 | Board layout | **Fizzy's two-lane board.** Maybe? stays open beside one lane you choose; every other lane folds into a strip that still takes drops. Cards are never placed by hand: they land on top of whatever lane they're dropped on, and lanes sort by activity. |
+| An agent anyone can talk to | **Yes, as the main way to plan.** It turns email and Teams into draft cards, triages, answers questions from the event log, and proposes each team's workflow. Design in [docs/agent.md](agent.md) |
+| First context sources for the agent | **Outlook email and Teams**, read with each person's own consent through Microsoft Graph |
 | Out-of-app notifications | Still open; comes after v1 (Slack or Teams webhooks, or SMTP from a secret). |
 
 ## Product concepts
@@ -144,7 +146,8 @@ after.
 | Live updates between open browsers | Later | v1 refetches on focus and polls every 10 s |
 | Email or Slack digests | Later | No Databricks-native email service |
 | Board analytics dashboard | Later | AI/BI dashboard over card events |
-| MCP server for agents | Later | |
+| The Seltzer agent (in-app, then email and Teams) | Next | Milestones M1 to M3 in [docs/agent.md](agent.md) |
+| MCP server for agents | Later | The agent's tools, exposed to outside agents |
 | Import from Trello, Jira or Kan | Later | |
 | Public boards | Not doing | Databricks Apps require sign-in |
 | Native mobile apps and web push | Not doing | |
@@ -282,8 +285,11 @@ granted CAN USE on the app is a Seltzer user; boards and roles are enforced by t
 **Which identity touches data**
 
 - Seltzer uses app authorization: the app's service principal holds the Lakebase role and the
-  volume grant. On-behalf-of-user tokens are not needed, because Seltzer data is not governed per
-  user in Unity Catalog.
+  volume grant. On-behalf-of-user tokens are not needed for v1, because Seltzer data is not
+  governed per user in Unity Catalog.
+- **Changes with the agent:** reading a person's email and Teams needs that person's own Microsoft
+  consent, and the agent must act within the asking person's access. See
+  [docs/agent.md](agent.md).
 
 **Inside Seltzer**
 
@@ -431,6 +437,14 @@ harness: the core keeps the lifecycle, lane order, the event log and permissions
 else, including Seltzer's own defaults such as auto-postpone, is built on eight hook points
 (`before`, `after`, `schedule`, `events`, `fields`, `commands`, `routes`, `slots`). The proposal
 and its open decisions are in [docs/mods.md](mods.md).
+
+## The agent (draft)
+
+Seltzer is getting one assistant anyone can talk to, in Seltzer, Teams or email. It plans from
+email and Teams context, triages Maybe?, and proposes each team's columns, fields, rules and views
+as changes the team accepts. It follows Linear's model of agents as visible, delegated teammates,
+sees only what the asking person can see, and treats outside content as data. Design, milestones
+and spikes are in [docs/agent.md](agent.md).
 
 ## Open questions and spikes
 

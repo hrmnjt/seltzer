@@ -9,6 +9,10 @@ Seltzer's own defaults. Auto-postpone, the "closing soon" warning and the planne
 detector and webhooks are all written as mods, so if those cannot be built on these hooks, the
 hooks are wrong.
 
+Most mods will not be written by hand. The Seltzer agent ([docs/agent.md](agent.md)) uses these
+hooks as its building blocks when it proposes a team's rules, fields and views, so the
+data-only kinds (rules, fields, views) matter most.
+
 ## What mods can never change
 
 These stay in the core, whatever is installed. They are what makes every Seltzer board readable

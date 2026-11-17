@@ -70,4 +70,6 @@ v1 (`docs/spec.md`, Scope) is built and tested locally. Next:
 
 1. Run the Lakebase and job-identity spikes in a dev workspace; adjust the bundle variables.
 2. `databricks bundle deploy -t dev`, sign in through the Apps proxy, and run the sweep job once.
-3. Then the Later items, starting with stalled-card detection and webhooks.
+3. Build the agent (`docs/agent.md`): M1 in-app, M2 email and Teams, M3 team setup by
+   conversation, using the first hooks from `docs/mods.md` (`after`, `schedule`, `fields`).
+4. Then the remaining Later items, built as mods where they fit.
